@@ -18,7 +18,7 @@
   html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
   a { color: var(--sky); }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 22px; }
   header.top { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); background: rgba(10,16,30,.92); backdrop-filter: blur(6px); }
   header.top .wrap { display: flex; align-items: center; gap: 14px; padding-block: 12px; flex-wrap: wrap; }
   .logo { font: 700 18px var(--head); color: var(--text); text-decoration: none; }
@@ -36,14 +36,14 @@
   .hero-band .bg { position: absolute; top: 0; bottom: 0; left: 18%; right: -18%;
                    background: url("/images/streams-hero.jpg") 50% 43% / cover no-repeat; }
   .hero-band .shade { position: absolute; inset: 0;
-    background: linear-gradient(90deg, rgba(5,10,20,.96) 0%, rgba(5,10,20,.88) 28%, rgba(5,10,20,.35) 52%, rgba(5,10,20,0) 66%),
+    background: linear-gradient(90deg, rgba(5,10,20,.97) 0%, rgba(5,10,20,.92) 32%, rgba(5,10,20,.6) 47%, rgba(5,10,20,0) 64%),
                 linear-gradient(180deg, rgba(5,10,20,0) 75%, var(--bg) 100%); }
   .hero-band canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .hero { position: relative; z-index: 1; padding-block: 96px 104px; }
   .hero .text { max-width: 560px; }
   @media (max-width: 900px) {
     .hero-band .bg { left: 0; right: 0; opacity: .5; }
-    .hero-band .shade { background: rgba(5,10,20,.65); }
+    .hero-band .shade { background: rgba(5,10,20,.72); }
   }
   .gets { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 36px; align-items: center; }
   @media (max-width: 900px) { .gets { grid-template-columns: 1fr; } }
@@ -52,6 +52,8 @@
   h1 { font: 700 clamp(34px, 5vw, 54px)/1.05 var(--head); margin: 12px 0 18px; letter-spacing: -1.2px; }
   h1 em { font-style: normal; color: var(--sky); }
   .lede { font-size: 17px; color: var(--muted); margin: 0 0 26px; }
+  .hero .lede { color: #cbd5e1; text-shadow: 0 1px 12px rgba(5,10,20,.9); }
+  .hero h1 { text-shadow: 0 2px 18px rgba(5,10,20,.8); }
   .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 12px 22px; font-weight: 700; font-size: 15px;
          text-decoration: none; border: 1px solid transparent; }
   .btn-primary { background: var(--sky); color: #04121c; }
@@ -363,10 +365,16 @@
     ctx.globalAlpha = .85; ctx.font = '600 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right';
     const lx = core.x - 0.17 * W;
     if (wide && lx - 150 > textRight + 10) LANES.forEach(L => { ctx.fillStyle = L.c; ctx.fillText(L.label, lx, core.y + L.y * H * 1.15); });
-    ctx.textAlign = 'center'; ctx.fillStyle = '#e0f2fe'; ctx.font = '700 15px "Space Grotesk", Helvetica, sans-serif';
-    if (wide) ctx.fillText('K9X Streams', core.x, core.y + 92);
-    ctx.font = '600 11px ui-monospace, Menlo, monospace'; ctx.fillStyle = '#93c5fd';
-    if (wide) ctx.fillText('live state · as_of on every value', core.x, core.y + 110);
+    ctx.textAlign = 'center';
+    if (wide) {   // a dark plate below the ring keeps the caption readable against the bright core
+      const ly = core.y + 0.25 * H;
+      ctx.globalAlpha = .82; ctx.fillStyle = '#050a14'; ctx.strokeStyle = 'rgba(125,211,252,.45)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(core.x - 140, ly - 22, 280, 50, 10); ctx.fill(); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.fillStyle = '#f0f9ff'; ctx.font = '700 16px "Space Grotesk", Helvetica, sans-serif';
+      ctx.fillText('K9X Streams', core.x, ly);
+      ctx.font = '600 11.5px ui-monospace, Menlo, monospace'; ctx.fillStyle = '#bae6fd';
+      ctx.fillText('live state · as_of on every value', core.x, ly + 18);
+    }
     if (!wide) return;
     const tx = Math.min(W - 96, core.x + 0.27 * W);
     [-1, 0, 1].forEach(k => {
@@ -375,8 +383,9 @@
       ctx.beginPath(); ctx.roundRect(tx - 2, y - 15, 64, 30, 8); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#ede9fe'; ctx.font = '700 12px "Space Grotesk", Helvetica, sans-serif'; ctx.fillText('Agent', tx + 30, y + 4);
     });
-    ctx.fillStyle = '#c4b5fd'; ctx.font = '700 12px ui-monospace, Menlo, monospace';
-    ctx.fillText('MCP →', core.x + 0.16 * W, core.y - 0.2 * H - 26);
+    ctx.globalAlpha = 1; ctx.fillStyle = '#ddd6fe'; ctx.font = '700 13px ui-monospace, Menlo, monospace';
+    ctx.shadowColor = '#050a14'; ctx.shadowBlur = 6;
+    ctx.fillText('MCP →', core.x + 0.16 * W, core.y - 0.2 * H - 26); ctx.shadowBlur = 0;
   }
   function frame() {
     ctx.clearRect(0, 0, W, H); ctx.globalAlpha = 1;
