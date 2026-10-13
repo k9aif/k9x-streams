@@ -60,8 +60,9 @@ def demo():
     return FileResponse(WEB / "demo.html", headers={"Cache-Control": "no-cache"})
 
 
-@app.get("/implement")
-def implement():
+@app.get("/architecture")
+@app.get("/implement")          # earlier address, kept so existing links work
+def architecture():
     return FileResponse(WEB / "implement.html", headers={"Cache-Control": "no-cache"})
 
 

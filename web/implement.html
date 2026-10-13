@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Implement K9X Streams</title>
+<title>K9X Streams Architecture</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -164,11 +164,11 @@
     <a class="logo" href="/"><span>K9X</span> Streams</a>
     <span class="tag">BETA</span>
     <nav>
-      <a href="/">Overview</a>
+      <a href="/">← Home</a>
+      <a href="#architecture">Architecture</a>
       <a href="#model">Reference model</a>
       <a href="#use">Five steps</a>
       <a href="#security">Security</a>
-      <a href="#architecture">Architecture</a>
       <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">GitHub ↗</a>
       <a class="cta" href="/demo">Open the live demo</a>
     </nav>
@@ -176,17 +176,74 @@
 </header>
 <div class="wrap page-hero">
   <div class="eyebrow">For solution architects</div>
-  <h1>Implement K9X Streams in your solution</h1>
-  <p>How to give agents built on K9-AIF the latest information: connect your sources, configure the framework's context fabric,
-    hand your orchestrators live context, and lock it down. K9X Streams is the reference implementation; your sources and
-    projections change, everything else is the framework.</p>
+  <h1>Architecture</h1>
+  <p>How k9x Origin fits into a solution built on K9-AIF, and how to build one: the architecture and class diagrams, the
+    five configuration steps, your Kafka or Confluent, the security controls, and how it scales. K9X Streams is the
+    reference implementation; your sources and projections change, everything else is the framework.</p>
   <div class="toc">
-    <a href="#model">1 · Reference model</a><a href="#use">2 · Five steps</a><a href="#kafka">3 · Your Kafka</a>
-    <a href="#security">4 · Security controls</a><a href="#readmodel">5 · Read model</a><a href="#architecture">6 · Architecture</a>
+    <a href="#architecture">1 · Architecture</a><a href="#model">2 · Reference model</a><a href="#use">3 · Five steps</a>
+    <a href="#kafka">4 · Your Kafka</a><a href="#security">5 · Security controls</a><a href="#readmodel">6 · Read model</a>
     <a href="#scaling">7 · Deploying at scale</a>
   </div>
 </div>
 <main class="wrap">
+  <section id="architecture" class="n">
+    <h2>Architecture</h2>
+    <p class="sub">For solution architects: where k9x Origin sits, how it is filled, and its classes in the framework; then the K9X Streams application on top.</p>
+    <div class="figs">
+      <div class="fig"><a href="/images/k9x_origin_big_picture.png" target="_blank"><img src="/images/k9x_origin_big_picture.png" alt="An agent's three paths: knowledge, current truth, actions" loading="lazy"></a>
+        <p>An agent's three paths: knowledge (retriever), current truth (k9x Origin), actions (systems of record), each screened by k9x Shield.</p></div>
+      <div class="fig"><a href="/images/k9x_origin_data_in.png" target="_blank"><img src="/images/k9x_origin_data_in.png" alt="How data reaches k9x Origin" loading="lazy"></a>
+        <p>How data reaches k9x Origin: pushed by streams through the Shield gate, pulled from systems of record on demand.</p></div>
+      <div class="fig"><a href="/images/k9x_origin_flow.png" target="_blank"><img src="/images/k9x_origin_flow.png" alt="One get_current call, step by step" loading="lazy"></a>
+        <p>One <code>get_current</code> call, step by step: scope, request screening, live state or read-through, verify, flags, answer screening.</p></div>
+      <div class="fig"><a href="/images/k9x_origin_class.png" target="_blank"><img src="/images/k9x_origin_class.png" alt="k9x Origin classes in K9-AIF" loading="lazy"></a>
+        <p>k9x Origin classes in the framework (<code>k9_origin</code>), with the state backends, adapters and the rules agent.</p></div>
+    </div>
+    <h3 style="margin:22px 0 8px">The K9X Streams application</h3>
+    <div class="fig">
+      <svg viewBox="0 0 1060 210" font-family="Space Grotesk, Helvetica, Arial, sans-serif" aria-label="Producers to Kafka to K9X Streams (consumer, live state, MCP server) to K9-AIF agents">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6b8a"/></marker></defs>
+        <g fill="none" stroke="#5b6b8a" stroke-width="2">
+          <path d="M175,105 L222,105" marker-end="url(#ar)"/><path d="M398,105 L445,105" marker-end="url(#ar)"/>
+          <path d="M832,105 L879,105" marker-end="url(#ar)"/>
+        </g>
+        <rect x="15" y="55" width="160" height="100" rx="12" fill="#101a2e" stroke="#38bdf8"/>
+        <text x="95" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Your producers</text>
+        <text x="95" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">apps, CDC, devices,</text>
+        <text x="95" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">or the demo generator</text>
+        <rect x="225" y="55" width="173" height="100" rx="12" fill="#101a2e" stroke="#34d399"/>
+        <text x="311" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Kafka</text>
+        <text x="311" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">Apache Kafka, Redpanda,</text>
+        <text x="311" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">Confluent, MSK</text>
+        <rect x="448" y="25" width="384" height="160" rx="14" fill="rgba(56,189,248,.05)" stroke="#38bdf8" stroke-dasharray="5 4"/>
+        <text x="640" y="47" fill="#38bdf8" font-size="13" font-weight="700" text-anchor="middle">K9X Streams</text>
+        <rect x="465" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
+        <text x="517" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Shield gate</text>
+        <text x="517" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">k9x Shield</text>
+        <rect x="588" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
+        <text x="640" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Live state</text>
+        <text x="640" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">projections</text>
+        <rect x="711" y="65" width="105" height="80" rx="10" fill="#17132b" stroke="#a78bfa"/>
+        <text x="763" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">MCP server</text>
+        <text x="763" y="118" fill="#a78bfa" font-size="11" text-anchor="middle">/mcp</text>
+        <g stroke="#5b6b8a" stroke-width="1.6" fill="none"><path d="M570,105 L586,105" marker-end="url(#ar)"/><path d="M693,105 L709,105" marker-end="url(#ar)"/></g>
+        <rect x="882" y="40" width="165" height="130" rx="12" fill="#101a2e" stroke="#22d3ee"/>
+        <text x="964" y="72" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">K9-AIF solution</text>
+        <text x="964" y="94" fill="#a3b1c6" font-size="12" text-anchor="middle">Orchestrator: live_context</text>
+        <text x="964" y="114" fill="#a3b1c6" font-size="12" text-anchor="middle">agents: MCP re-check</text>
+        <text x="964" y="134" fill="#a3b1c6" font-size="12" text-anchor="middle">k9x Shield on results</text>
+        <text x="964" y="154" fill="#a3b1c6" font-size="12" text-anchor="middle">HIL when it matters</text>
+      </svg>
+    </div>
+    <div class="figs">
+      <div class="fig"><a href="/images/k9x_streams_class.png" target="_blank"><img src="/images/k9x_streams_class.png" alt="K9X Streams classes on the K9-AIF framework" loading="lazy"></a>
+        <p>Classes: four projections, one orchestrator and one agent extend K9-AIF; everything else is the framework.</p></div>
+      <div class="fig tall"><a href="/images/k9x_streams_architecture.png" target="_blank"><img src="/images/k9x_streams_architecture.png" alt="K9X Streams deployment view" loading="lazy"></a>
+        <p>Deployment view: producers, topics, the K9X Streams service and a K9-AIF solution.</p></div>
+    </div>
+  </section>
+
   <section id="model" class="n">
     <h2>The reference model</h2>
     <p class="sub">K9X Streams is how to build an agentic application that must act on the latest information. Copy the model, not the
@@ -337,62 +394,6 @@ app.mount("/", OriginMCPServer(origin).http_app())      # MCP at /mcp</pre></div
       system of record (an idempotency key or a unique constraint such as one payment per invoice).</p>
   </section>
 
-  <section id="architecture" class="n">
-    <h2>Architecture</h2>
-    <p class="sub">For solution architects: where k9x Origin sits, how it is filled, and its classes in the framework; then the K9X Streams application on top.</p>
-    <div class="figs">
-      <div class="fig"><a href="/images/k9x_origin_big_picture.png" target="_blank"><img src="/images/k9x_origin_big_picture.png" alt="An agent's three paths: knowledge, current truth, actions" loading="lazy"></a>
-        <p>An agent's three paths: knowledge (retriever), current truth (k9x Origin), actions (systems of record), each screened by k9x Shield.</p></div>
-      <div class="fig"><a href="/images/k9x_origin_data_in.png" target="_blank"><img src="/images/k9x_origin_data_in.png" alt="How data reaches k9x Origin" loading="lazy"></a>
-        <p>How data reaches k9x Origin: pushed by streams through the Shield gate, pulled from systems of record on demand.</p></div>
-      <div class="fig"><a href="/images/k9x_origin_flow.png" target="_blank"><img src="/images/k9x_origin_flow.png" alt="One get_current call, step by step" loading="lazy"></a>
-        <p>One <code>get_current</code> call, step by step: scope, request screening, live state or read-through, verify, flags, answer screening.</p></div>
-      <div class="fig"><a href="/images/k9x_origin_class.png" target="_blank"><img src="/images/k9x_origin_class.png" alt="k9x Origin classes in K9-AIF" loading="lazy"></a>
-        <p>k9x Origin classes in the framework (<code>k9_origin</code>), with the state backends, adapters and the rules agent.</p></div>
-    </div>
-    <h3 style="margin:22px 0 8px">The K9X Streams application</h3>
-    <div class="fig">
-      <svg viewBox="0 0 1060 210" font-family="Space Grotesk, Helvetica, Arial, sans-serif" aria-label="Producers to Kafka to K9X Streams (consumer, live state, MCP server) to K9-AIF agents">
-        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6b8a"/></marker></defs>
-        <g fill="none" stroke="#5b6b8a" stroke-width="2">
-          <path d="M175,105 L222,105" marker-end="url(#ar)"/><path d="M398,105 L445,105" marker-end="url(#ar)"/>
-          <path d="M832,105 L879,105" marker-end="url(#ar)"/>
-        </g>
-        <rect x="15" y="55" width="160" height="100" rx="12" fill="#101a2e" stroke="#38bdf8"/>
-        <text x="95" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Your producers</text>
-        <text x="95" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">apps, CDC, devices,</text>
-        <text x="95" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">or the demo generator</text>
-        <rect x="225" y="55" width="173" height="100" rx="12" fill="#101a2e" stroke="#34d399"/>
-        <text x="311" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Kafka</text>
-        <text x="311" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">Apache Kafka, Redpanda,</text>
-        <text x="311" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">Confluent, MSK</text>
-        <rect x="448" y="25" width="384" height="160" rx="14" fill="rgba(56,189,248,.05)" stroke="#38bdf8" stroke-dasharray="5 4"/>
-        <text x="640" y="47" fill="#38bdf8" font-size="13" font-weight="700" text-anchor="middle">K9X Streams</text>
-        <rect x="465" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
-        <text x="517" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Shield gate</text>
-        <text x="517" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">k9x Shield</text>
-        <rect x="588" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
-        <text x="640" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Live state</text>
-        <text x="640" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">projections</text>
-        <rect x="711" y="65" width="105" height="80" rx="10" fill="#17132b" stroke="#a78bfa"/>
-        <text x="763" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">MCP server</text>
-        <text x="763" y="118" fill="#a78bfa" font-size="11" text-anchor="middle">/mcp</text>
-        <g stroke="#5b6b8a" stroke-width="1.6" fill="none"><path d="M570,105 L586,105" marker-end="url(#ar)"/><path d="M693,105 L709,105" marker-end="url(#ar)"/></g>
-        <rect x="882" y="40" width="165" height="130" rx="12" fill="#101a2e" stroke="#22d3ee"/>
-        <text x="964" y="72" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">K9-AIF solution</text>
-        <text x="964" y="94" fill="#a3b1c6" font-size="12" text-anchor="middle">Orchestrator: live_context</text>
-        <text x="964" y="114" fill="#a3b1c6" font-size="12" text-anchor="middle">agents: MCP re-check</text>
-        <text x="964" y="134" fill="#a3b1c6" font-size="12" text-anchor="middle">k9x Shield on results</text>
-        <text x="964" y="154" fill="#a3b1c6" font-size="12" text-anchor="middle">HIL when it matters</text>
-      </svg>
-    </div>
-    <div class="figs">
-      <div class="fig"><a href="/images/k9x_streams_class.png" target="_blank"><img src="/images/k9x_streams_class.png" alt="K9X Streams classes on the K9-AIF framework" loading="lazy"></a>
-        <p>Classes: four projections, one orchestrator and one agent extend K9-AIF; everything else is the framework.</p></div>
-      <div class="fig tall"><a href="/images/k9x_streams_architecture.png" target="_blank"><img src="/images/k9x_streams_architecture.png" alt="K9X Streams deployment view" loading="lazy"></a>
-        <p>Deployment view: producers, topics, the K9X Streams service and a K9-AIF solution.</p></div>
-    </div>
-  </section>
 
   <section id="scaling" class="n">
     <h2>Deploying at scale</h2>
