@@ -40,6 +40,9 @@
   .btn:hover:not(:disabled) { border-color: var(--inv); }
   .btn:disabled { opacity: .45; cursor: not-allowed; }
   .btn.primary { background: var(--inv); color: #04121c; border-color: var(--inv); }
+  .btn.gen { background: var(--pay); color: #04121c; border-color: var(--pay); }
+  .btn.gen.on { background: transparent; color: var(--pay); }
+  .btn.primary.on { background: transparent; color: var(--inv); }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .rate { width: 100%; accent-color: var(--inv); }
   .counts { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font: 12px var(--mono); color: var(--muted); margin-top: 10px; }
@@ -234,8 +237,7 @@
       <div class="card">
         <h2>Incoming data</h2>
         <div class="row">
-          <button class="btn primary" id="bStart">Start generator</button>
-          <button class="btn" id="bStop">Stop</button>
+          <button class="btn gen" id="bGen">Start generator</button>
         </div>
         <div style="margin-top:12px;font-size:12px;color:var(--muted)">Rate: <b id="rateV" style="color:var(--text)">1.0</b> events/s</div>
         <input class="rate" type="range" id="rate" min="0.5" max="5" step="0.5" value="1">
@@ -349,7 +351,11 @@ async function loadState() {
 function fmtAge(s) { s = Math.max(0, Math.round(s)); return s < 60 ? s + ' s ago' : Math.round(s / 60) + ' min ago'; }
 setInterval(() => document.querySelectorAll('.age[data-ts]').forEach(el => { el.textContent = fmtAge(Date.now() / 1000 - Number(el.dataset.ts)); }), 1000);
 
+let genRunning = false;
 function setGen(running, rate) {
+  genRunning = running;
+  $('bGen').textContent = running ? 'Stop generator' : 'Start generator';
+  $('bGen').classList.toggle('on', running);
   $('pGen').textContent = 'generator: ' + (running ? `running · ${rate}/s` : 'stopped');
   $('pGen').className = 'pill' + (running ? ' on' : '');
 }
@@ -449,10 +455,10 @@ function connect() {
   };
 }
 
-$('bStart').onclick = () => fetch('/api/generator/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rate: Number($('rate').value)})});
-$('bStop').onclick = () => fetch('/api/generator/stop', {method: 'POST'});
+const genStart = () => fetch('/api/generator/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rate: Number($('rate').value)})});
+$('bGen').onclick = () => genRunning ? fetch('/api/generator/stop', {method: 'POST'}) : genStart();
 $('rate').oninput = () => { $('rateV').textContent = Number($('rate').value).toFixed(1); };
-$('rate').onchange = () => { if ($('pGen').textContent.includes('running')) $('bStart').onclick(); };
+$('rate').onchange = () => { if (genRunning) genStart(); };
 document.querySelectorAll('.scen button').forEach(b => b.onclick = async () => {
   setBusy(true);
   const r = await fetch('/api/scenario/' + b.dataset.s, {method: 'POST'});
@@ -499,10 +505,10 @@ document.querySelectorAll('.th').forEach(b => b.onclick = () => fetch('/api/thre
 document.querySelectorAll('.ag').forEach(b => b.onclick = () => ask(b.dataset.a));
 let simTimer = null;
 $('bSim').onclick = () => {
-  if (simTimer) { clearInterval(simTimer); simTimer = null; $('bSim').textContent = 'Run simulator'; return; }
+  if (simTimer) { clearInterval(simTimer); simTimer = null; $('bSim').textContent = 'Run simulator'; $('bSim').classList.remove('on'); return; }
   const names = ['payment', 'vendor_risk', 'cash_forecast', 'audit'];
   let next = 0; const tick = () => ask(names[next++ % names.length]);
-  tick(); simTimer = setInterval(tick, 1800); $('bSim').textContent = 'Stop simulator';
+  tick(); simTimer = setInterval(tick, 1800); $('bSim').textContent = 'Stop simulator'; $('bSim').classList.add('on');
 };
 
 loadState().catch(() => {}); connect();
