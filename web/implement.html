@@ -152,6 +152,10 @@
               border: 1px solid var(--border, #1e2a44); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
   .k9x-home:hover { color: var(--sky, #38bdf8); border-color: var(--sky, #38bdf8); }
   .k9x-sep { color: var(--border, #1e2a44); margin: 0 10px 0 8px; font-size: 18px; }
+  .deploy { margin: 0 0 6px; padding-left: 20px; color: var(--muted); }
+  .deploy li { margin: 6px 0; } .deploy b { color: var(--text); }
+  .oneline { margin: 16px 0 0; padding: 12px 16px; border-left: 3px solid var(--sky); background: var(--card);
+             border-radius: 0 8px 8px 0; font-weight: 600; }
 </style>
 <style>
   .page-hero { padding-block: 54px 18px; border-bottom: 1px solid var(--border); }
@@ -179,18 +183,48 @@
   </div>
 </header>
 <div class="wrap page-hero">
-  <div class="eyebrow">For solution architects</div>
+  <div class="eyebrow">For developers and solution architects</div>
   <h1>Architecture</h1>
   <p>How k9x Origin fits into a solution built on K9-AIF, and how to build one: the architecture and class diagrams, the
     five configuration steps, your Kafka or Confluent, the security controls, and how it scales. K9X Streams is the
     reference implementation; your sources and projections change, everything else is the framework.</p>
   <div class="toc">
-    <a href="#architecture">1 · Architecture</a><a href="#model">2 · Reference model</a><a href="#use">3 · Five steps</a>
-    <a href="#kafka">4 · Your Kafka</a><a href="#security">5 · Security controls</a><a href="#readmodel">6 · Read model</a>
-    <a href="#scaling">7 · Deploying at scale</a>
+    <a href="#what">1 · What k9x Origin is</a><a href="#architecture">2 · Architecture</a><a href="#model">3 · Reference model</a>
+    <a href="#use">4 · Five steps</a><a href="#kafka">5 · Your Kafka</a><a href="#security">6 · Security controls</a>
+    <a href="#readmodel">7 · Read model</a><a href="#scaling">8 · Deploying at scale</a>
   </div>
 </div>
 <main class="wrap">
+  <section id="what" class="n">
+    <h2>What k9x Origin is</h2>
+    <p class="sub"><b>k9x Origin is a framework component, and MCP is one of the ways to reach it</b>, the same way k9x Shield
+      is a component, not a service.</p>
+    <div class="rows">
+      <div class="r"><h3>What it is</h3><p>A class in the framework (<code>K9Origin</code>, in <code>k9_origin</code>) that does the
+        resolving: scope, Shield checks, live state, read-through, verify, flags. It runs inside your solution's own process,
+        wherever you build it with <code>OriginFactory.create(config)</code>.</p></div>
+    </div>
+    <table class="k" style="margin-top:14px">
+      <thead><tr><th>Who asks</th><th>How</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><b>Orchestrator</b></td><td>Direct, in-process, no network</td><td>Before a squad runs, it fills <code>live_context</code> from <code>origin.yaml</code></td></tr>
+        <tr><td><b>Agent</b> (or any MCP client)</td><td>Over <b>MCP</b>, through <code>OriginMCPServer</code></td><td>The agent's last-moment <code>get_current</code> before acting</td></tr>
+      </tbody>
+    </table>
+    <p class="note">So "MCP service" describes how agents call it, not what it is. <code>OriginMCPServer</code> is the thin MCP
+      wrapper that carries the calls; all the logic is in <code>K9Origin</code>.</p>
+    <h3 style="margin:22px 0 8px">How it is deployed</h3>
+    <ul class="deploy">
+      <li><b>In K9X Streams:</b> Origin runs inside the Streams app, and the same process serves it at <code>/mcp</code>. Agents
+        connect with the framework's MCP client.</li>
+      <li><b>In your own solution:</b> the same (Origin inside your app, with its own <code>/mcp</code>), or added onto an MCP server
+        you already run with <code>register_on(mcp)</code>, so agents use one endpoint for knowing and doing.</li>
+      <li><b>At scale:</b> several Origin MCP servers behind a load balancer, all reading shared live state in Redis. Origin keeps no
+        state of its own.</li>
+    </ul>
+    <p class="oneline">Origin is built into K9-AIF; agents talk to it over MCP; orchestrators call it directly.</p>
+  </section>
+
   <section id="architecture" class="n">
     <h2>Architecture</h2>
     <p class="sub">For solution architects: where k9x Origin sits, how it is filled, and its classes in the framework; then the K9X Streams application on top.</p>
