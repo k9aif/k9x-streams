@@ -53,6 +53,21 @@ with `requirements.txt`. With no `KAFKA_BROKER` it starts Redpanda in podman or 
 | `/demo` | Live demo: generator → Kafka → consumer → live state → MCP → agent |
 | `/mcp` | MCP endpoint (streamable HTTP): `get_current`, `recent_changes`, `query`, resource `streams://{entity}/{id}` |
 
+## Deploy (Podman)
+
+```bash
+./ubuntu/build-run.sh all      # build the image, start the pod on 127.0.0.1:8016
+./ubuntu/build-run.sh status   # pod, containers, health
+./ubuntu/build-run.sh logs     # tail the app
+./ubuntu/build-run.sh stop
+```
+
+The pod runs K9X Streams and its own Redpanda, so a public demo never publishes to a shared
+broker. To use your organization's Kafka instead, set `STREAMS_KAFKA=external` and
+`KAFKA_BROKER` (plus `KAFKA_SECURITY_PROTOCOL` / `KAFKA_SASL_*`) in `.env`. The image installs
+K9-AIF from the framework's main branch and runs with `K9_ENV=production`. Expose it through
+your reverse proxy or tunnel (streams.k9x.ai → `http://localhost:8016`).
+
 ## The demo
 
 A generator publishes accounts-payable events to `ap.invoice.updated`, `ap.payment.posted`

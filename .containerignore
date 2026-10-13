@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.sample
+.venv/
+__pycache__/
+*.pyc
+.git/
+.DS_Store
+web/images/k9x-streams-grok.png

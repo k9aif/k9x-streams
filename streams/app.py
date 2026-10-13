@@ -283,4 +283,4 @@ async def _ask_mcp(agent: str, name: str, q: Dict[str, Any]) -> Dict[str, Any]:
 app.mount("/images", StaticFiles(directory=str(WEB / "images")), name="images")
 
 # MCP endpoint at /mcp (FastMCP's streamable-HTTP app), mounted last so the routes above win.
-app.mount("/", fabric.mcp.streamable_http_app())
+app.mount("/", fabric.mcp_server.http_app())

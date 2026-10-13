@@ -1,0 +1,47 @@
+# K9X Streams — live, governed context for agents (reference model on the K9-AIF context fabric)
+# RHEL UBI 9 Python 3.11 container image
+#
+# k9_aif_abb comes from a git clone of the framework's main branch, so a build always has
+# the latest context fabric (KafkaEventFabric, GovernanceEventGate, ContextMCPServer...)
+# even before a release reaches PyPI. build-run.sh passes K9AIF_CACHE_VERSION=<timestamp>
+# so that layer re-runs on every build.
+#
+# Build (from this project's own root):
+#   podman build -f ubuntu/Containerfile -t k9x-streams:latest .
+
+FROM registry.access.redhat.com/ubi9/python-311:latest
+
+USER root
+RUN dnf install -y git && dnf clean all && rm -rf /var/cache/dnf
+
+# App dependencies first (cached unless requirements.txt changes); k9-aif comes from git below.
+COPY requirements.txt /tmp/requirements.txt
+RUN grep -viE '^[[:space:]]*k9-aif' /tmp/requirements.txt > /tmp/requirements-filtered.txt \
+    && python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r /tmp/requirements-filtered.txt
+
+ARG K9AIF_CACHE_VERSION=1
+RUN echo "K9-AIF cache version: ${K9AIF_CACHE_VERSION}" \
+    && git clone --depth 1 https://github.com/k9aif/k9-aif-framework.git /tmp/k9-aif-framework \
+    && python -m pip install --no-cache-dir "/tmp/k9-aif-framework[kafka,mcp]" \
+    && rm -rf /tmp/k9-aif-framework
+
+COPY . /app/k9x_streams
+WORKDIR /app/k9x_streams
+
+# K9_ENV=production: every agent, orchestrator and the stream gate run under k9x Shield;
+# ungoverned components are refused rather than tolerated.
+ENV PYTHONPATH=/app/k9x_streams \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    K9_ENV=production \
+    STREAMS_PORT=8016
+
+EXPOSE 8016
+
+HEALTHCHECK --interval=30s --timeout=8s --start-period=20s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8016/api/health')" || exit 1
+
+USER 1001
+
+CMD ["sh", "-c", "uvicorn streams.app:app --host 0.0.0.0 --port ${STREAMS_PORT} --log-level info"]
