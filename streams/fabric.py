@@ -36,14 +36,19 @@ FRAMEWORK_CONFIG: Dict[str, Any] = {
         "state": {"max_age_seconds": config.MAX_AGE_SECONDS},
         "gate": "governance",
     },
-    # k9x Shield for stream events and tool results: injection phrasing and
-    # business-language payment diversion are refused wherever they appear.
+    # k9x Shield for stream events and MCP answers: injection phrasing, business-language
+    # payment diversion and raw PII values (SSN, card numbers, emails...) are refused.
     "security": {"shield": {"enabled": True,
-                            "ingress": {"checks": ["PromptInjectionCheck", "PaymentDiversionCheck"]},
-                            "egress": {"checks": ["PromptInjectionCheck"]}}},
+                            "ingress": {"checks": ["PromptInjectionCheck", "PaymentDiversionCheck", "PIIBoundaryCheck"]},
+                            "egress": {"checks": ["PromptInjectionCheck"]},
+                            "check_config": {"PIIBoundaryCheck": {"block_on_match": True}}}},
 }
 
 shield = ShieldGovernance(FRAMEWORK_CONFIG)
+# What an agent may *ask*: injection hidden in arguments, solicitations for PII.
+request_shield = ShieldGovernance({"security": {"shield": {
+    "enabled": True, "ingress": {"checks": ["PromptInjectionCheck", "PIIRequestCheck"]}}}})
+ALLOWED_ENTITIES = {"invoice", "vendor", "payment"}
 state = StreamsFactory.create_state(FRAMEWORK_CONFIG, projections=AP_PROJECTIONS)
 gate = StreamsFactory.create_gate(FRAMEWORK_CONFIG, governance=shield)
 counts: Dict[str, int] = {}
@@ -61,11 +66,13 @@ def _on_event(e: Dict[str, Any]) -> None:
 
 ingest = ContextIngest(None, state, gate=gate, listeners=[_on_event])
 mcp_server = ContextMCPServer(
-    state, name="k9x-streams",
+    state, name="k9x-streams", governance=shield, request_governance=request_shield,
+    allowed_entities=ALLOWED_ENTITIES,
     instructions=("Live Accounts Payable state built from Kafka streams. Entities: invoice, vendor, payment. "
                   "Every result has as_of, age_seconds and stale; do not act on stale values."),
     on_call=lambda c: hub.publish("mcp", tool=c["tool"], args=c["args"], ms=c["ms"], as_of=c["as_of"],
-                                  age=c["age_seconds"], found=c["found"]))
+                                  age=c["age_seconds"], found=c["found"], screened=c["screened"],
+                                  reason=(c.get("reason") or "")[:240]))
 mcp = mcp_server.build_fastmcp()
 
 _fabric = None

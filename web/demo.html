@@ -110,6 +110,17 @@
             border-radius: 8px; background: #0b1220; border: 1px solid var(--border); }
   .sim .x .who { font-weight: 700; color: #22d3ee; }
   .sim .x.ans .who { color: #a78bfa; }
+  .sim .x.bad { border-color: rgba(248,113,113,.55); background: rgba(248,113,113,.07); }
+  .sim .x.bad .who { color: #f87171; }
+  .sim .x.stop { border-color: rgba(52,211,153,.55); background: rgba(52,211,153,.07); }
+  .sim .x.stop .who { color: #34d399; }
+  .sim .threats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
+  .sim .th { text-align: left; background: rgba(248,113,113,.06); border: 1px solid rgba(248,113,113,.4); border-radius: 10px;
+             padding: 9px 11px; color: var(--text); cursor: pointer; font: inherit; }
+  .sim .th:hover { border-color: #f87171; }
+  .sim .th b { display: block; font-size: 13px; color: #fca5a5; } .sim .th span { font-size: 11.5px; color: var(--muted); }
+  .sim h3 { margin: 4px 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  @media (max-width: 900px) { .sim .threats { grid-template-columns: 1fr 1fr; } }
   .sim .x code { font-size: 12px; } .sim .x .meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: pre-wrap; }
   @media (max-width: 900px) { .sim .agents { grid-template-columns: 1fr 1fr; } .sim .x { grid-template-columns: 1fr; } }
 </style>
@@ -206,6 +217,14 @@
       <button class="ag" data-a="vendor_risk"><b>Vendor-risk agent</b><span>get_current(vendor): flagged or quarantined?</span></button>
       <button class="ag" data-a="cash_forecast"><b>Cash-forecast agent</b><span>query(approved invoices over $10,000)</span></button>
       <button class="ag" data-a="audit"><b>Audit agent</b><span>recent_changes(invoice, last 10 min)</span></button>
+    </div>
+    <h3>Threat simulator · each of these must be stopped</h3>
+    <div class="threats">
+      <button class="th" data-t="poisoned_note"><b>Poisoned stream event</b><span>Vendor note with planted instructions</span></button>
+      <button class="th" data-t="pii_in_stream"><b>PII in the stream</b><span>SSN and card number in a vendor update</span></button>
+      <button class="th" data-t="pii_request"><b>PII request</b><span>Rogue agent asks for SSN and bank account</span></button>
+      <button class="th" data-t="injection_request"><b>Injection in a request</b><span>Instructions hidden in a tool argument</span></button>
+      <button class="th" data-t="out_of_scope"><b>Out-of-scope data</b><span>Agent asks for employee records</span></button>
     </div>
     <div class="feed" id="simFeed"><div class="empty">Requests and answers appear here: agent → MCP server, then MCP server → agent, with the value's age.</div></div>
   </div>
@@ -401,6 +420,8 @@ function connect() {
         + (ev.amount ? ` · $${Number(ev.amount).toLocaleString()}` : '') + (ev.reason ? ` · ${esc(ev.reason)}` : '') + (ev.note ? ' · note' : '')
         + (refused ? ` · <b style="color:#f87171">refused at the gate, quarantined</b> <span style="color:var(--muted)">${esc((m.reason || '').replace(/^k9x_Shield blocked ingress /, ''))}</span>` : '');
       lg.prepend(row); while (lg.children.length > 60) lg.lastChild.remove();
+      if (refused) simAdd('stop', '🛡 Blocked · Shield gate', `${esc(ev.type)} for ${esc(key)} refused and quarantined; never applied to live state
+        <div class="meta">${esc((m.reason || '').replace(/^k9x_Shield blocked ingress /, ''))}</div>`);
       refreshSoon();
     } else if (m.kind === 'mcp') {
       pulse(['a2m', 'm2s'], '#a78bfa', 260, 5); setTimeout(() => pulse(['s2m', 'm2a'], '#a78bfa', 260, 5), 520);
@@ -435,7 +456,8 @@ document.querySelectorAll('.scen button').forEach(b => b.onclick = async () => {
 // ── agent simulator ──
 function simAnswer(m) {
   const r = m.result || {};
-  if (m.screened !== 'passed') return 'withheld by k9x Shield';
+  if (m.screened === 'refused') return 'REFUSED before any data was read: ' + (r.reason || '').replace(/^k9x_Shield blocked ingress /, 'k9x Shield ');
+  if (m.screened !== 'passed') return 'WITHHELD by k9x Shield: ' + ((r.reason || r.error || '')).replace(/^.*k9x_Shield blocked ingress /, '').slice(0, 160);
   if (r.rows) {
     const total = r.rows.reduce((t, x) => t + Number((x.value || {}).amount || 0), 0);
     return `${r.count} invoice(s), $${total.toLocaleString('en-US', {maximumFractionDigits: 0})} · as_of ${r.as_of}`;
@@ -454,16 +476,21 @@ function onSim(m) {
   if (m.phase === 'ask') {
     if (btn) btn.classList.add('busy');
     glow('nAgent', '#22d3ee');
-    simAdd('ask', esc(m.name) + ' → MCP', `<code>${esc(m.tool)}(${esc(JSON.stringify(m.args))})</code><div class="meta">${esc(m.why)}</div>`);
+    simAdd(m.agent === 'threat' ? 'bad' : 'ask', esc(m.name) + ' → MCP', `<code>${esc(m.tool)}(${esc(JSON.stringify(m.args))})</code><div class="meta">${esc(m.why)}</div>`);
   } else if (m.phase === 'answer') {
     if (btn) setTimeout(() => btn.classList.remove('busy'), 400);
-    simAdd('ans', 'MCP → ' + esc(m.name), `${esc(simAnswer(m))}<div class="meta">${m.ms} ms · Shield: ${esc(m.screened)}</div>`);
+    const stopped = m.screened !== 'passed';
+    simAdd(stopped ? 'stop' : 'ans', (stopped ? '🛡 Blocked · MCP → ' : 'MCP → ') + esc(m.name),
+      `${esc(simAnswer(m))}<div class="meta">${m.ms} ms · Shield: ${esc(m.screened)}</div>`);
+  } else if (m.phase === 'threat') {
+    simAdd('bad', esc(m.name), `${esc(m.threat)}<div class="meta">sent to Kafka; the Shield gate must refuse it before it reaches live state</div>`);
   } else if (m.phase === 'error') {
     if (btn) btn.classList.remove('busy');
     simAdd('ans', 'MCP → ' + esc(m.name), `<b style="color:var(--block)">${esc(m.error)}</b>`);
   }
 }
 const ask = a => fetch('/api/simulate/' + a, {method: 'POST'}).catch(() => {});
+document.querySelectorAll('.th').forEach(b => b.onclick = () => fetch('/api/threat/' + b.dataset.t, {method: 'POST'}).catch(() => {}));
 document.querySelectorAll('.ag').forEach(b => b.onclick = () => ask(b.dataset.a));
 let simTimer = null;
 $('bSim').onclick = () => {
