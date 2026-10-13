@@ -89,19 +89,20 @@ address is configuration (`MCP_SERVER_URL`), never written into code or docs.
 
 ## Phases
 
-| Phase | What | Where |
+| Phase | What | Status |
 |---|---|---|
-| 1 | AP live state + MCP tools + duplicate-payment demo | `k9x_mcp_server` (SBB) + simulator here |
-| 2 | Contracts promoted to the framework once proven: stream source, live state store, trigger | `k9-aif-framework` (ABB) |
-| 3 | Confluent adapter; CDC adapter | adapters (SBB / framework OOB) |
-| 4 | Freshness and scope checks as Shield / Zero Trust rules; catalog entries | framework |
+| 1 | AP live state, MCP tools, four-scenario demo, as its own service (port 8780) | Built 2026-10-12 |
+| 2 | Contracts in the framework: `BaseContextState`, `GovernanceEventGate`, `ContextIngest`, `ContextMCPServer`, Orchestrator `live_context`, `KafkaEventFabric` SSL/SASL | **Built: K9-AIF 1.17.0**; this app now runs on them |
+| 3 | Stream triggers (rule → domain event → Router), `RequiresHIL` on quarantine, Redis/PostgreSQL state, Avro + Schema Registry, CDC adapter | Next |
+| 4 | Freshness and scope checks as Shield / Zero Trust rules | Catalog entries `stream_event_gate`, `context_freshness` added in 1.17; rules next |
 
-Contracts are proven here first and promoted into the framework afterwards, the same
-direction as Shield checks proven in K9X Satan.
+Phase 1 was built as its own service rather than inside `k9x_mcp_server` (the "First build"
+plan above), so the demo needs no other server; the AP tools there can read the same state
+later through `ContextMCPServer`.
 
 ## Open questions
 
-- Store: Redis (fast, simple) or PostgreSQL (one less service; SQL queries) for Phase 1.
+- Store for multi-process deployments: Redis or PostgreSQL behind `BaseContextState` (`StreamsFactory.register_state`).
 - Window length and retention per entity type.
 - Partitioning when scaled: key by entity id so one entity's events stay in order
   (today's topics are single-partition, which already keeps order).

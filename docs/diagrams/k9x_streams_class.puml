@@ -1,0 +1,61 @@
+@startuml k9x_streams_class
+title K9X Streams: application classes on the K9-AIF context fabric
+top to bottom direction
+
+package "K9X Streams application" as APPPKG {
+  class PaymentReleaseOrchestrator {
+    +execute_flow(payload)
+  }
+  class PaymentReleaseAgent {
+    +execute(payload)
+  }
+  class InvoiceProjection
+  class PaymentProjection
+  class VendorFlagProjection
+  class VendorNoteProjection
+  class Generator {
+    +approved_invoice()
+    +post_payment()
+    +flag_vendor()
+    +poisoned_note()
+  }
+}
+
+package "K9-AIF framework (1.17)" as FW {
+  abstract class BaseOrchestrator {
+    context_state
+    +execute_squads()
+  }
+  class BaseSquad
+  abstract class BaseAgent
+  abstract class BaseContextProjection {
+    +updates(envelope)
+  }
+  class InMemoryContextState
+  class ContextIngest
+  class GovernanceEventGate
+  class KafkaEventFabric
+  class ContextMCPServer
+  class MCPStreamableHttpConnector
+}
+
+BaseOrchestrator <|-- PaymentReleaseOrchestrator
+BaseAgent <|-- PaymentReleaseAgent
+BaseContextProjection <|-- InvoiceProjection
+BaseContextProjection <|-- PaymentProjection
+BaseContextProjection <|-- VendorFlagProjection
+BaseContextProjection <|-- VendorNoteProjection
+
+PaymentReleaseOrchestrator --> BaseSquad
+BaseSquad o-- PaymentReleaseAgent
+PaymentReleaseOrchestrator ..> InMemoryContextState : live_context
+PaymentReleaseAgent ..> MCPStreamableHttpConnector : re-check
+Generator ..> KafkaEventFabric : publish
+
+ContextIngest --> KafkaEventFabric
+ContextIngest --> GovernanceEventGate
+ContextIngest --> InMemoryContextState
+InMemoryContextState o-- BaseContextProjection
+ContextMCPServer --> InMemoryContextState
+MCPStreamableHttpConnector ..> ContextMCPServer : /mcp
+@enduml

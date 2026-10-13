@@ -6,27 +6,11 @@ from __future__ import annotations
 
 import os
 
-KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
-# Organization brokers: Apache Kafka, Confluent Platform / Cloud, Redpanda, Amazon MSK...
-# PLAINTEXT (default), SSL, SASL_PLAINTEXT or SASL_SSL; Confluent Cloud is SASL_SSL + PLAIN
-# with an API key and secret as username and password.
-KAFKA_SECURITY_PROTOCOL = os.getenv("KAFKA_SECURITY_PROTOCOL", "PLAINTEXT")
-KAFKA_SASL_MECHANISM = os.getenv("KAFKA_SASL_MECHANISM", "PLAIN")
-KAFKA_SASL_USERNAME = os.getenv("KAFKA_SASL_USERNAME", "")
-KAFKA_SASL_PASSWORD = os.getenv("KAFKA_SASL_PASSWORD", "")
-
-
-def kafka_kwargs() -> dict:
-    """Connection settings shared by the producer and the consumer."""
-    kw = {"bootstrap_servers": KAFKA_BROKER, "security_protocol": KAFKA_SECURITY_PROTOCOL}
-    if KAFKA_SECURITY_PROTOCOL in ("SSL", "SASL_SSL"):
-        import ssl
-        kw["ssl_context"] = ssl.create_default_context()
-    if KAFKA_SECURITY_PROTOCOL.startswith("SASL"):
-        kw.update(sasl_mechanism=KAFKA_SASL_MECHANISM, sasl_plain_username=KAFKA_SASL_USERNAME,
-                  sasl_plain_password=KAFKA_SASL_PASSWORD)
-    return kw
-
+# Broker and security settings are read by the framework's KafkaEventFabric from the same
+# environment: KAFKA_BROKER (or KAFKA_BOOTSTRAP_SERVERS), KAFKA_SECURITY_PROTOCOL (PLAINTEXT,
+# SSL, SASL_PLAINTEXT, SASL_SSL), KAFKA_SASL_MECHANISM, KAFKA_SASL_USERNAME, KAFKA_SASL_PASSWORD.
+# Confluent Cloud is SASL_SSL + PLAIN with an API key and secret.
+KAFKA_BROKER = os.getenv("KAFKA_BOOTSTRAP_SERVERS") or os.getenv("KAFKA_BROKER", "localhost:9092")
 
 PORT = int(os.getenv("STREAMS_PORT", "8780"))
 # Where the agent reaches this service's MCP endpoint (the same process by default).

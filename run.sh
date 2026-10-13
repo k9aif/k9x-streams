@@ -36,7 +36,7 @@ else
   PY="$DIR/.venv/bin/python"
   export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
 fi
-"$PY" -c "import aiokafka, mcp, fastapi, uvicorn, k9_aif_abb" 2>/dev/null || "$PY" -m pip install -q -r requirements.txt
+"$PY" -c "import kafka, mcp, fastapi, uvicorn, k9_aif_abb.k9_streams.context_ingest" 2>/dev/null || "$PY" -m pip install -q -r requirements.txt
 
 # ── Kafka: yours (KAFKA_BROKER), or a local Redpanda ──
 if [[ -z "${KAFKA_BROKER:-}" ]]; then

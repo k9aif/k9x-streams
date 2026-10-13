@@ -104,6 +104,19 @@
   table.k code { font: 12.5px var(--mono); color: #7dd3fc; }
   .note { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
 
+  .use { display: grid; gap: 14px; counter-reset: use; }
+  .use .u { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 18px; align-items: start;
+            border-top: 1px solid var(--border); padding-top: 14px; }
+  .use .u h3 { margin: 0 0 4px; font-size: 16px; }
+  .use .u h3::before { counter-increment: use; content: counter(use) " · "; color: var(--sky); font-family: var(--mono); font-size: 13px; }
+  .use .u p { margin: 0; color: var(--muted); font-size: 14px; }
+  .use pre { margin: 0; background: #0a1120; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+             font: 12px/1.6 var(--mono); color: #cbd5e1; overflow-x: auto; white-space: pre; }
+  .fig img { width: 100%; height: auto; display: block; border-radius: 8px; background: #fff; }
+  .figs { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 14px; }
+  .figs .fig.tall img { max-width: 560px; margin: 0 auto; }
+  .figs .fig p { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  @media (max-width: 900px) { .use .u, .figs { grid-template-columns: 1fr; } }
   .fig { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
   .fig svg { width: 100%; height: auto; display: block; }
 
@@ -134,7 +147,7 @@
       <a href="#provides">What it provides</a>
       <a href="#how">How it works</a>
       <a href="#demo">The demo</a>
-      <a href="#kafka">Your Kafka</a>
+      <a href="#kafka">Your Kafka</a><a href="#use">Use it</a>
       <a href="#architecture">Architecture</a>
       <a href="#scope">Scope</a>
       <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">GitHub ↗</a>
@@ -196,10 +209,12 @@
         refuses to decide on a value older than the limit you set (<code>STREAMS_MAX_AGE_SECONDS</code>).</p></div>
       <div class="r"><h3>Provenance on every value</h3><p>Each value names the Kafka topic and offset of the event that set it, so a
         decision can be traced back to the exact record behind it.</p></div>
-      <div class="r"><h3>Governed like any tool result</h3><p>Stream data is untrusted input. Answers pass k9x Shield
-        (<code>screen_tool_result</code>, with checks such as <code>PromptInjectionCheck</code> and <code>PaymentDiversionCheck</code>)
-        before an agent reads them.</p></div>
-      <div class="r"><h3>Rebuilt from the stream</h3><p>The live state replays from the topics on start, so Kafka stays the source of
+      <div class="r"><h3>Governed twice</h3><p>Stream data is untrusted input. Every event passes k9x Shield at the gate
+        (<code>GovernanceEventGate</code>, with <code>PromptInjectionCheck</code> and <code>PaymentDiversionCheck</code>); a refused
+        event is quarantined, never applied. Each answer an agent reads is screened again (<code>screen_tool_result</code>).</p></div>
+      <div class="r"><h3>Injected or on demand</h3><p>The Orchestrator adds <code>live_context</code> for the entities a flow is
+        about before the squad runs; an agent that must re-check just before acting asks over MCP.</p></div>
+      <div class="r" hidden><h3>Rebuilt from the stream</h3><p>The live state replays from the topics on start, so Kafka stays the source of
         truth and a restart loses nothing.</p></div>
       <div class="r designed"><h3>Events that start agents <span class="soon">designed</span></h3><p>A rule on a stream ("payment
         posted for an invoice under review") publishes a domain event, and the K9-AIF Router starts a squad, the same way events work today.</p></div>
@@ -213,9 +228,9 @@
     <div class="steps">
       <div class="st"><i>1 · IN</i><b>Incoming data</b><span>Your producers, change data capture from databases, or the demo's generator publish events.</span></div>
       <div class="st"><i>2 · KAFKA</i><b>Topics</b><span>Events land on topics: <code>ap.invoice.updated</code>, <code>ap.payment.posted</code>, <code>ap.vendor.flagged</code>.</span></div>
-      <div class="st"><i>3 · STATE</i><b>Live state</b><span>A consumer folds every event into the latest value per entity plus a short window of changes.</span></div>
-      <div class="st"><i>4 · MCP</i><b>Ask, with as_of</b><span>The MCP server answers with the value, its age and the event behind it.</span></div>
-      <div class="st"><i>5 · AGENT</i><b>Re-check, then act</b><span>A K9-AIF agent re-checks just before it acts; Shield screens each answer.</span></div>
+      <div class="st"><i>3 · GATE</i><b>Screened</b><span>k9x Shield checks every event. A refused one is quarantined: the entity is marked, its content never applied.</span></div>
+      <div class="st"><i>4 · STATE</i><b>Live state</b><span>Projections fold events into the latest value per entity, with <code>as_of</code> and the source event. Rebuilt from the topics on start.</span></div>
+      <div class="st"><i>5 · AGENT</i><b>Injected, then re-checked</b><span>The Orchestrator hands the squad <code>live_context</code>; just before acting the agent re-checks over MCP.</span></div>
     </div>
   </section>
 
@@ -227,7 +242,7 @@
       <div class="sc" style="--c:var(--pay)"><b>1 · Release payment</b><p>Nothing changes. The agent re-checks the live state and releases.</p><div class="out">→ RELEASE</div></div>
       <div class="sc" style="--c:var(--amber)"><b>2 · Duplicate payment</b><p>Another system pays the invoice mid-review. Live state shows it, seconds old.</p><div class="out">→ HOLD, duplicate prevented</div></div>
       <div class="sc" style="--c:var(--amber)"><b>3 · Vendor flagged</b><p>A sanctions flag for the vendor arrives on the stream mid-review.</p><div class="out">→ HOLD, vendor flagged</div></div>
-      <div class="sc" style="--c:var(--red)"><b>4 · Poisoned stream event</b><p>A vendor note carries hidden instructions to pay a new account. Shield blocks it.</p><div class="out">→ HOLD, untrusted data blocked</div></div>
+      <div class="sc" style="--c:var(--red)"><b>4 · Poisoned stream event</b><p>A vendor note carries hidden instructions to pay a new account. Shield refuses it at the gate; the vendor is quarantined.</p><div class="out">→ HOLD for human review</div></div>
     </div>
     <p class="note"><a href="/demo">Open the live demo →</a> Start the generator, then run a scenario and watch each event, each MCP call and the decision.</p>
   </section>
@@ -249,9 +264,45 @@
       never a dependency: the framework stays vendor-neutral.</p>
   </section>
 
+  <section id="use" class="n">
+    <h2>Use it in your solution</h2>
+    <p class="sub">Everything here is the K9-AIF framework's context fabric (1.17); K9X Streams adds only its Accounts Payable
+      projections, a generator, one orchestrator and one agent. A solution in any domain that needs streaming data follows the same five steps.</p>
+    <div class="use">
+      <div class="u"><div><h3>Turn on the fabric</h3><p>In your solution's <code>config.yaml</code>. Broker and credentials stay in <code>.env</code>.</p></div>
+<pre>streams:
+  enabled: true
+  provider: kafka
+  kafka: {auto_offset_reset: earliest}   # replay: topics are the source of truth
+  state: {max_age_seconds: 120}          # older values are reported stale
+  gate: governance                       # every event through security.shield</pre></div>
+      <div class="u"><div><h3>One projection per business event</h3><p>Map source records to the entities your agents reason about. This is the only domain code the fabric needs.</p></div>
+<pre>class PolicyProjection(BaseContextProjection):
+    entity, id_field = "policy", "policy_id"
+    def accepts(self, env): return env.event_type.startswith("policy.")
+    def project(self, env): return {"status": env.payload["status"],
+                                    "premium": env.payload["premium"]}</pre></div>
+      <div class="u"><div><h3>Wire it at the entry point</h3><p>Through <code>StreamsFactory</code>, where agents are registered. The gate refuses to run ungoverned in production.</p></div>
+<pre>state = StreamsFactory.create_state(config, projections=[PolicyProjection()])
+gate  = StreamsFactory.create_gate(config)
+ContextIngest(StreamsFactory.create_fabric(config), state, gate=gate) \
+    .attach(["policy.updated"])
+mcp = ContextMCPServer(state).build_fastmcp()     # mount at /mcp</pre></div>
+      <div class="u"><div><h3>Hand agents the context</h3><p>Give your orchestrator the state; name what each flow is about. Squads receive <code>payload["live_context"]</code>.</p></div>
+<pre>orch = ClaimsOrchestrator(config, governance=shield, context_state=state)
+orch.execute_flow({"claim_id": "C-1",
+                   "live_context_refs": ["policy:P-001"]})</pre></div>
+      <div class="u"><div><h3>Re-check before acting</h3><p>An agent about to pay, approve or ship asks again over MCP and refuses stale or quarantined data.</p></div>
+<pre>cur = await mcp_client.call_tool("get_current", {"entity": "policy", "id": "P-001"})
+await screen_tool_result(shield, "get_current", cur)
+if cur["stale"] or cur.get("quarantined"): raise RequiresHIL(...)</pre></div>
+    </div>
+    <p class="note">Full recipe: <a href="https://github.com/k9aif/k9-aif-framework/blob/main/docs/developers/Developer-guide.md#157-live-context-from-event-streams-context-fabric-117" target="_blank" rel="noopener">Developer Guide 15.7 ↗</a></p>
+  </section>
+
   <section id="architecture" class="n">
     <h2>Architecture</h2>
-    <p class="sub">One small service beside your K9-AIF solution, connected to it only by MCP and Kafka.</p>
+    <p class="sub">Framework building blocks, configured: Kafka in, a governed live state in the middle, MCP and the Orchestrator out.</p>
     <div class="fig">
       <svg viewBox="0 0 1060 210" font-family="Space Grotesk, Helvetica, Arial, sans-serif" aria-label="Producers to Kafka to K9X Streams (consumer, live state, MCP server) to K9-AIF agents">
         <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6b8a"/></marker></defs>
@@ -270,22 +321,28 @@
         <rect x="448" y="25" width="384" height="160" rx="14" fill="rgba(56,189,248,.05)" stroke="#38bdf8" stroke-dasharray="5 4"/>
         <text x="640" y="47" fill="#38bdf8" font-size="13" font-weight="700" text-anchor="middle">K9X Streams</text>
         <rect x="465" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
-        <text x="517" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Consumer</text>
-        <text x="517" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">folds events</text>
+        <text x="517" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Shield gate</text>
+        <text x="517" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">k9x Shield</text>
         <rect x="588" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
         <text x="640" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Live state</text>
-        <text x="640" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">as_of, source</text>
+        <text x="640" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">projections</text>
         <rect x="711" y="65" width="105" height="80" rx="10" fill="#17132b" stroke="#a78bfa"/>
         <text x="763" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">MCP server</text>
         <text x="763" y="118" fill="#a78bfa" font-size="11" text-anchor="middle">/mcp</text>
         <g stroke="#5b6b8a" stroke-width="1.6" fill="none"><path d="M570,105 L586,105" marker-end="url(#ar)"/><path d="M693,105 L709,105" marker-end="url(#ar)"/></g>
         <rect x="882" y="40" width="165" height="130" rx="12" fill="#101a2e" stroke="#22d3ee"/>
         <text x="964" y="72" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">K9-AIF solution</text>
-        <text x="964" y="94" fill="#a3b1c6" font-size="12" text-anchor="middle">agents and squads</text>
-        <text x="964" y="114" fill="#a3b1c6" font-size="12" text-anchor="middle">MCP client</text>
+        <text x="964" y="94" fill="#a3b1c6" font-size="12" text-anchor="middle">Orchestrator: live_context</text>
+        <text x="964" y="114" fill="#a3b1c6" font-size="12" text-anchor="middle">agents: MCP re-check</text>
         <text x="964" y="134" fill="#a3b1c6" font-size="12" text-anchor="middle">k9x Shield on results</text>
         <text x="964" y="154" fill="#a3b1c6" font-size="12" text-anchor="middle">HIL when it matters</text>
       </svg>
+    </div>
+    <div class="figs">
+      <div class="fig"><a href="/images/k9x_streams_class.png" target="_blank"><img src="/images/k9x_streams_class.png" alt="K9X Streams classes on the K9-AIF framework" loading="lazy"></a>
+        <p>Classes: four projections, one orchestrator and one agent extend K9-AIF; everything else is the framework.</p></div>
+      <div class="fig tall"><a href="/images/k9x_streams_architecture.png" target="_blank"><img src="/images/k9x_streams_architecture.png" alt="K9X Streams deployment view" loading="lazy"></a>
+        <p>Deployment view: producers, topics, the K9X Streams service and a K9-AIF solution.</p></div>
     </div>
   </section>
 
@@ -294,7 +351,7 @@
       <h2>Built on the K9-AIF framework</h2>
       <p><b>K9-AIF (Agentic Integration Framework)</b> is an architecture-first framework for building governed, secure, and enterprise-scale AI applications. Built on OOA/OOD principles and TOGAF-aligned, it brings consistency, governance, and auditability to agentic systems from day one. Every Router, Orchestrator, Squad and Agent in an application built on K9-AIF extends a K9-AIF Architecture Building Block, so governance, human review and auditability are inherited, not hand-built per application.</p>
       <p class="keyline"><b>Security checks that keep pace with new attacks.</b> AI is now used to attack applications that are themselves built with AI: instructions hidden in documents, agents impersonating other agents, poisoned tool results. K9-AIF tracks these attack techniques as they are published and adds matching checks to the framework's governance pipeline. Solutions built on K9-AIF pick up the new checks with a framework upgrade, without rewriting their own agents. K9X Sentinel reads newly published attacks every day and checks each one against the framework's security capabilities.</p>
-      <p>The <b>K9X ecosystem</b> brings the framework to life: <b class="p-hil">K9X HIL</b> (the human decisions an agent can pause for), <b class="p-sentinel">K9X Sentinel</b> (above), <b class="p-satan">K9X Satan</b> (an adversarial harness that proves the defences hold), and now <b>K9X Streams</b> (live context, governed the same way).</p>
+      <p>The <b>K9X ecosystem</b> brings the framework to life: <b class="p-hil">K9X HIL</b> (the human decisions an agent can pause for), <b class="p-sentinel">K9X Sentinel</b> (above), <b class="p-satan">K9X Satan</b> (an adversarial harness that proves the defences hold), and now <b>K9X Streams</b>, the reference application for the framework's context fabric (1.17): <code>KafkaEventFabric</code>, <code>GovernanceEventGate</code>, <code>BaseContextState</code>, <code>ContextMCPServer</code> and live context on every <code>BaseOrchestrator</code>.</p>
       <div class="chips">
         <a class="chip" href="https://k9x.ai" target="_blank" rel="noopener">k9x.ai ↗</a>
         <a class="chip p-hil" href="https://hil.k9x.ai" target="_blank" rel="noopener">K9X HIL ↗</a>
@@ -311,7 +368,8 @@
       <ul>
         <li>The Accounts Payable events are <b>simulated</b>; there is no real vendor, invoice or payment data.</li>
         <li>The live state is held in memory and rebuilt from the topics on start; Redis or PostgreSQL behind the same interface is next.</li>
-        <li>One agent with deterministic, explainable rules shows the pattern; your squads call the same MCP tools.</li>
+        <li>One orchestrator, one squad and one agent with deterministic, explainable rules show the pattern; your squads get the same <code>live_context</code> and MCP tools.</li>
+        <li>A quarantined event is held for human review in the decision; raising it to K9X HIL (<code>RequiresHIL</code>) is the next step.</li>
         <li>The demo's MCP endpoint has no sign-in; with real data it authenticates callers and Zero Trust scopes what each agent may read.</li>
         <li>MCP resource subscriptions, stream triggers that start agents, and Avro with Schema Registry are <b>designed, not built</b>. Confluent Cloud settings are supported but not yet tested against a Confluent Cloud cluster.</li>
       </ul>

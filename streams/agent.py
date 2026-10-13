@@ -1,18 +1,22 @@
 # SPDX-License-Identifier: Apache-2.0
 # K9X Streams
 """PaymentReleaseAgent: a K9-AIF agent that decides whether to release payment for an
-approved invoice, using live context from K9X Streams over MCP.
+approved invoice, on live context from the context fabric.
 
-It reads the invoice, reviews it, then re-checks the live state just before releasing:
-the invoice, its recent changes and the vendor. Every MCP result is screened by k9x_Shield
-(screen_tool_result) before the agent uses it: stream data is untrusted input.
+It gets live context both ways the framework offers:
+  1. injected: the Orchestrator adds payload["live_context"]["invoice:<id>"] before the
+     squad runs (BaseOrchestrator, context_state + live_context_refs);
+  2. on demand: just before releasing, it re-checks over MCP (ContextMCPServer, called with
+     the framework's MCPStreamableHttpConnector). Every MCP result is screened by k9x Shield
+     (screen_tool_result): stream data is untrusted input.
 
 Decision rules (deterministic, explainable):
-  already paid (a payment posted)       -> HOLD: duplicate payment prevented
-  vendor flagged (sanctions list)       -> HOLD: vendor flagged
-  a result withheld by Shield           -> HOLD: untrusted stream data blocked
-  invoice state older than the maximum  -> HOLD: stale data, refused
-  otherwise                             -> RELEASE
+  already paid (a payment posted)              -> HOLD: duplicate payment prevented
+  vendor flagged (sanctions list)              -> HOLD: vendor flagged
+  an event for it refused at the gate          -> HOLD for human review (quarantined)
+  a result withheld by Shield                  -> HOLD for human review
+  invoice state stale (older than the maximum) -> HOLD: stale data, refused
+  otherwise                                    -> RELEASE
 """
 
 from __future__ import annotations
@@ -25,24 +29,17 @@ from typing import Any, Callable, Dict, Optional
 from k9_aif_abb.k9_core.agent.base_agent import BaseAgent
 from k9_aif_abb.k9_core.integration.mcp_streamable_http_connector import MCPStreamableHttpConnector
 from k9_aif_abb.k9_security.tool_result_guard import screen_tool_result
-from k9_aif_abb.k9_security.vulnerability.shield_governance import ShieldGovernance
 
 from streams import config
-
-# Shield for tool results (and for the agent's own payload/output): injection phrasing and
-# business-language payment diversion are refused wherever they appear.
-SHIELD_CONFIG = {"security": {"shield": {"enabled": True,
-                                         "ingress": {"checks": ["PromptInjectionCheck", "PaymentDiversionCheck"]},
-                                         "egress": {"checks": ["PromptInjectionCheck"]}}}}
 
 
 class PaymentReleaseAgent(BaseAgent):
     layer = "K9X Streams PaymentReleaseAgent"
 
-    def __init__(self, config_: Optional[Dict[str, Any]] = None, on_step: Optional[Callable[..., None]] = None):
-        shield = ShieldGovernance(SHIELD_CONFIG)
-        super().__init__(config_ or {}, governance=shield)
-        self.shield = shield
+    def __init__(self, config_: Optional[Dict[str, Any]] = None, governance: Any = None,
+                 on_step: Optional[Callable[..., None]] = None):
+        super().__init__(config_ or {}, governance=governance)
+        self.shield = governance
         self.on_step = on_step or (lambda **_: None)
         self.mcp = MCPStreamableHttpConnector({"name": "k9x-streams", "kwargs": {"url": config.MCP_URL, "timeout": 15}})
 
@@ -70,9 +67,9 @@ class PaymentReleaseAgent(BaseAgent):
         say = lambda text, **kw: self.on_step(run=run, step="note", text=text, **kw)
 
         say(f"Reviewing {inv_id} for payment release")
-        inv = await self._call(run, "look up the invoice", "get_current", {"entity": "invoice", "id": inv_id})
-        if inv is None:
-            return self._decide(run, inv_id, "HOLD", "untrusted stream data blocked by k9x_Shield")
+        inv = (payload.get("live_context") or {}).get(f"invoice:{inv_id}") or {"found": False}
+        self.on_step(run=run, step="injected", tool="live_context", args={"ref": f"invoice:{inv_id}"},
+                     screened="passed", result=inv)
         if not inv.get("found") or inv["value"].get("status") != "approved":
             return self._decide(run, inv_id, "HOLD", f"invoice is not approved (status: {inv.get('value', {}).get('status')})")
         vendor_id = inv["value"].get("vendor_id")
@@ -80,14 +77,14 @@ class PaymentReleaseAgent(BaseAgent):
         say(f"Checking documents and amounts ({review_s:.0f} s)…", reviewing=review_s)
         await asyncio.sleep(review_s)
 
-        say("Re-checking live state before releasing payment")
+        say("Re-checking live state over MCP before releasing payment")
         inv = await self._call(run, "re-check the invoice", "get_current", {"entity": "invoice", "id": inv_id})
         changes = await self._call(run, "what changed while reviewing", "recent_changes",
                                    {"entity": "invoice", "id": inv_id, "window_seconds": 120})
         vendor = await self._call(run, "check the vendor", "get_current", {"entity": "vendor", "id": vendor_id})
 
         if inv is None or changes is None or vendor is None:
-            return self._decide(run, inv_id, "HOLD", "untrusted stream data blocked by k9x_Shield; sent for human review")
+            return self._decide(run, inv_id, "HOLD", "a live-context answer was withheld by k9x Shield; held for human review")
         if inv["value"].get("status") == "paid" or inv["value"].get("payments"):
             p = (inv["value"].get("payments") or [{}])[-1]
             return self._decide(run, inv_id, "HOLD",
@@ -97,7 +94,14 @@ class PaymentReleaseAgent(BaseAgent):
             flag = vendor["value"].get("flag") or {}
             return self._decide(run, inv_id, "HOLD", f"vendor flagged: {flag.get('reason')} ({flag.get('list')}), "
                                 f"{vendor.get('age_seconds')} s ago")
-        if inv.get("age_seconds", 0) > config.MAX_AGE_SECONDS:
+        for entity in (inv, vendor):
+            if entity.get("quarantined"):
+                q = entity["quarantined"][-1]
+                who = inv["value"].get("vendor_name") if entity is vendor else None
+                return self._decide(run, inv_id, "HOLD",
+                                    f"a {q['event_type']} event for {who or entity['entity'] + ' ' + entity['id']} was refused at the "
+                                    f"stream gate by k9x Shield ({q['blocked_by']}); held for human review")
+        if inv.get("stale"):
             return self._decide(run, inv_id, "HOLD", f"stale data: invoice state is {inv['age_seconds']} s old")
         return self._decide(run, inv_id, "RELEASE",
                             f"approved, unpaid, vendor clear; live state as of {inv.get('as_of')}")

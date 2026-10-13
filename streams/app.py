@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # K9X Streams
-"""K9X Streams service: one process runs the generator, the Kafka consumer, the live
-state store, the MCP server (/mcp), the agent, and the live page (/).
+"""K9X Streams service, an application built on K9-AIF's context fabric (1.17). One process
+runs the generator, the governed ingest (KafkaEventFabric → GovernanceEventGate → live
+state), the context MCP server (/mcp), the payment-release orchestrator, squad and agent,
+and the pages (/ and /demo).
 
     uvicorn streams.app:app --port 8780
 """
@@ -11,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import os
+import threading
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -21,12 +23,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from streams import config
-from streams.consumer import run_consumer
+from k9_aif_abb.k9_squad.base_squad import BaseSquad
+
+from streams import config, fabric
 from streams.generator import VENDORS, generator
 from streams.hub import hub
-from streams.mcp_server import mcp
-from streams.state import store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 log = logging.getLogger("k9x_streams")
@@ -37,18 +38,13 @@ _agent_busy = asyncio.Lock()
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
     hub.loop = asyncio.get_running_loop()
-    consumer_task = None
-    try:
-        await generator.start_producer()
-        consumer_task = asyncio.create_task(run_consumer())
-    except Exception as exc:
-        log.warning("Kafka not reachable at %s: %s", config.KAFKA_BROKER, exc)
-    async with mcp.session_manager.run():
+    stop = threading.Event()
+    threading.Thread(target=fabric.start_ingest, args=(stop,), daemon=True, name="k9x-streams-ingest").start()
+    async with fabric.mcp.session_manager.run():
         yield
+    stop.set()
     generator.stop()
-    if consumer_task:
-        consumer_task.cancel()
-    await generator.stop_producer()
+    fabric.close()
 
 
 app = FastAPI(title="K9X Streams", lifespan=lifespan)
@@ -71,7 +67,14 @@ def health():
 
 @app.get("/api/state")
 def state():
-    return {**store.snapshot(), "generator": {"running": generator.running, "rate": generator.rate},
+    names = dict(VENDORS)
+    vendors = fabric.state.query("vendor")["rows"]
+    for row in vendors:   # a quarantined event's content is never applied, so name it from the master list
+        row["value"].setdefault("vendor_name", names.get(row["id"]))
+    return {"invoices": fabric.state.query("invoice")["rows"], "vendors": vendors,
+            "kafka": {"connected": fabric.ingest.fabric is not None, "broker": config.KAFKA_BROKER},
+            "counts": dict(fabric.counts), "gate": dict(fabric.ingest.counts),
+            "generator": {"running": generator.running, "rate": generator.rate},
             "topics": config.TOPICS, "max_age_seconds": config.MAX_AGE_SECONDS}
 
 
@@ -125,7 +128,7 @@ async def scenario(name: str):
         raise HTTPException(404, f"unknown scenario; one of {sorted(SCENARIOS)}")
     if _agent_busy.locked():
         raise HTTPException(409, "the agent is already reviewing an invoice")
-    if generator.producer is None:
+    if fabric.ingest.fabric is None:
         raise HTTPException(503, f"Kafka not reachable at {config.KAFKA_BROKER}")
     inv = await generator.approved_invoice()
     run = uuid.uuid4().hex[:8]
@@ -136,11 +139,18 @@ async def scenario(name: str):
 
 async def _run_scenario(name: str, run: str, inv: Dict[str, Any]) -> None:
     from streams.agent import PaymentReleaseAgent
+    from streams.orchestrator import PaymentReleaseOrchestrator
     async with _agent_busy:
-        await asyncio.sleep(0.8)   # let the consumer fold the new invoice in
-        agent = PaymentReleaseAgent(on_step=lambda **s: hub.publish("agent", **s))
+        await asyncio.sleep(0.8)   # let the ingest fold the new invoice in
+        # Entry point: register the agent in its squad; the orchestrator knows the squad only.
+        agent = PaymentReleaseAgent(fabric.FRAMEWORK_CONFIG, governance=fabric.shield,
+                                    on_step=lambda **s: hub.publish("agent", **s))
+        squad = BaseSquad("payment_release", [agent])
+        squad.flow = [{"agent": "PaymentReleaseAgent"}]
+        orchestrator = PaymentReleaseOrchestrator([squad], config=fabric.FRAMEWORK_CONFIG,
+                                                  governance=fabric.shield, context_state=fabric.state)
         loop = asyncio.get_running_loop()
-        task = loop.run_in_executor(None, agent.execute,
+        task = loop.run_in_executor(None, orchestrator.execute_flow,
                                     {"invoice_id": inv["invoice_id"], "run": run, "review_seconds": 4})
         await asyncio.sleep(2.0)   # mid-review: the world changes
         if name == "duplicate_payment":
@@ -163,4 +173,4 @@ async def _run_scenario(name: str, run: str, inv: Dict[str, Any]) -> None:
 app.mount("/images", StaticFiles(directory=str(WEB / "images")), name="images")
 
 # MCP endpoint at /mcp (FastMCP's streamable-HTTP app), mounted last so the routes above win.
-app.mount("/", mcp.streamable_http_app())
+app.mount("/", fabric.mcp.streamable_http_app())

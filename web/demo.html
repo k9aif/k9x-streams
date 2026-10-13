@@ -113,12 +113,12 @@
   </header>
 
   <h1>AI agents don't run on <em>yesterday's data</em>.</h1>
-  <p class="lede">Live events flow through Kafka into a state store; a K9-AIF agent asks for the current state over MCP
-    just before it acts, and every answer is screened by k9x Shield. Start the generator, then run a scenario and watch
-    the world change while the agent is reviewing.</p>
+  <p class="lede">Live events flow through Kafka and a k9x Shield gate into live state. The Orchestrator hands the agent the
+    invoice's current state; just before acting, the agent re-checks over MCP, and every answer is screened again. Start the
+    generator, then run a scenario and watch the world change while the agent is reviewing.</p>
 
   <div class="card pipe">
-    <svg id="pipe" viewBox="0 0 1400 250" aria-label="Generator to Kafka to consumer to live state to MCP to agent to decision">
+    <svg id="pipe" viewBox="0 0 1400 250" aria-label="Generator to Kafka to the k9x Shield gate to live state to MCP to agent to decision">
       <defs>
         <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3a4a6b"/></marker>
@@ -153,9 +153,10 @@
         <rect x="260" y="162" width="210" height="36" rx="8" fill="#2a1f0b" stroke="#f59e0b"/>
         <text x="365" y="185" fill="#f59e0b" font-size="12.5" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">ap.vendor.flagged</text>
 
-        <rect x="560" y="85" width="140" height="80" rx="12" fill="#101a2e" stroke="#2a3754" stroke-width="1.5"/>
-        <text x="630" y="118" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Consumer</text>
-        <text x="630" y="138" fill="#8b9bb4" font-size="11.5" text-anchor="middle">folds every event</text>
+        <rect id="nGate" x="560" y="85" width="140" height="80" rx="12" fill="#101a2e" stroke="#2a3754" stroke-width="1.5"/>
+        <text x="630" y="113" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Shield gate</text>
+        <text x="630" y="131" fill="#8b9bb4" font-size="11" text-anchor="middle">screens every event</text>
+        <text x="630" y="147" fill="#8b9bb4" font-size="10.5" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">ContextIngest</text>
 
         <rect id="nState" x="760" y="80" width="150" height="90" rx="12" fill="#101a2e" stroke="#38bdf8" stroke-width="1.5"/>
         <text x="835" y="112" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Live state</text>
@@ -168,15 +169,15 @@
         <text x="1030" y="147" fill="#a78bfa" font-size="11" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">recent_changes</text>
 
         <rect id="nAgent" x="1150" y="80" width="140" height="90" rx="12" fill="#101a2e" stroke="#22d3ee" stroke-width="1.5"/>
-        <text x="1220" y="108" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Agent</text>
-        <text x="1220" y="126" fill="#8b9bb4" font-size="11" text-anchor="middle">K9-AIF BaseAgent</text>
-        <text x="1220" y="143" fill="#8b9bb4" font-size="11" text-anchor="middle">MCP client +</text>
-        <text x="1220" y="158" fill="#8b9bb4" font-size="11" text-anchor="middle">k9x Shield</text>
+        <text x="1220" y="106" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Agent</text>
+        <text x="1220" y="124" fill="#8b9bb4" font-size="11" text-anchor="middle">Orchestrator → Squad</text>
+        <text x="1220" y="141" fill="#8b9bb4" font-size="11" text-anchor="middle">live_context + MCP</text>
+        <text x="1220" y="157" fill="#8b9bb4" font-size="11" text-anchor="middle">k9x Shield</text>
 
         <rect id="nDec" x="1310" y="95" width="80" height="60" rx="10" fill="#101a2e" stroke="#2a3754" stroke-width="1.5"/>
         <text id="tDec" x="1350" y="130" fill="#8b9bb4" font-size="12.5" font-weight="700" text-anchor="middle">decision</text>
       </g>
-      <text x="20" y="242" fill="#5f6f8a" font-size="11.5" font-family="ui-monospace, Menlo, monospace">dots: one per Kafka event (topic colour) · violet: an MCP call from the agent to the live state and back</text>
+      <text x="20" y="242" fill="#5f6f8a" font-size="11.5" font-family="ui-monospace, Menlo, monospace">dots: one per Kafka event (topic colour), red when the gate refuses it · violet: an MCP call from the agent to the live state and back</text>
     </svg>
   </div>
 
@@ -230,7 +231,7 @@
   </div>
 
   <footer>
-    <span>Generator → Kafka → consumer → live state → MCP → K9-AIF agent (framework MCP client; results screened by k9x Shield)</span>
+    <span>Built from K9-AIF 1.17 context fabric: KafkaEventFabric → GovernanceEventGate → live state → ContextMCPServer → Orchestrator → Squad → agent</span>
     <span>Part of the K9X ecosystem · built on <a href="https://github.com/k9aif/k9-aif-framework" target="_blank" rel="noopener">K9-AIF</a> ·
       <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">source</a> · Apache-2.0</span>
   </footer>
@@ -277,6 +278,8 @@ async function loadState() {
   TOPICS = s.topics || TOPICS;
   TOPICS.forEach((t, i) => { $('c' + i).textContent = (s.counts || {})[t] || 0; });
   setGen(s.generator.running, s.generator.rate);
+  if (s.kafka) { $('pKafka').textContent = 'Kafka: ' + (s.kafka.connected ? 'connected' : 'unreachable');
+                 $('pKafka').className = 'pill ' + (s.kafka.connected ? 'on' : 'off'); }
   const inv = (s.invoices || []).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 40);
   if (!inv.length) return;
   $('invBody').innerHTML = inv.map(r => {
@@ -288,8 +291,9 @@ async function loadState() {
       <td><span class="chip ${esc(st)}">${esc(st)}</span></td><td class="age" data-ts="${tsAsOf}">${fmtAge(r.age_seconds)}</td></tr>`;
   }).join('');
   $('vendors').innerHTML = (s.vendors || []).map(r => {
-    const v = r.value, cls = v.status === 'flagged' ? 'flagged' : (v.notes && v.notes.length ? 'note' : 'ok');
-    const label = cls === 'flagged' ? 'flagged' : cls === 'note' ? 'note in stream' : 'clear';
+    const q = r.quarantined && r.quarantined.length;
+    const v = r.value, cls = v.status === 'flagged' ? 'flagged' : q ? 'flagged' : (v.notes && v.notes.length ? 'note' : 'ok');
+    const label = v.status === 'flagged' ? 'flagged' : q ? 'event quarantined' : cls === 'note' ? 'note in stream' : 'clear';
     return `<div class="vendor"><b>${esc(v.vendor_name || r.id)}</b><span class="chip ${cls}">${label}</span>
       <span class="age" style="margin-left:6px" data-ts="${Date.now() / 1000 - r.age_seconds}">${fmtAge(r.age_seconds)}</span></div>`;
   }).join('');
@@ -316,6 +320,8 @@ function summarize(res) {
   if (v.payments && v.payments.length) bits.push('paid by ' + v.payments.map(p => p.payment_id).join(', '));
   if (v.flag) bits.push('flag: ' + v.flag.reason);
   if (v.notes && v.notes.length) bits.push('note: “' + v.notes[v.notes.length - 1].slice(0, 70) + '…”');
+  if (res.quarantined && res.quarantined.length) bits.push('quarantined: ' + res.quarantined.map(q => q.event_type + ' (' + q.blocked_by + ')').join(', '));
+  if (res.stale) bits.push('STALE');
   return bits.join(' · ') + `\nas_of ${res.as_of} · ${res.age_seconds} s old · ${res.source ? res.source.topic + ' #' + res.source.offset : ''}`;
 }
 function onAgent(m) {
@@ -327,6 +333,12 @@ function onAgent(m) {
       <div style="margin-top:4px">${esc(m.reason)}</div></div>`, '');
     $('tDec').textContent = d; $('tDec').setAttribute('fill', d === 'RELEASE' ? '#34d399' : '#fbbf24');
     glow('nDec', d === 'RELEASE' ? '#34d399' : '#fbbf24'); pulse(['a2d'], d === 'RELEASE' ? '#34d399' : '#fbbf24', 450, 7);
+    return;
+  }
+  if (m.step === 'injected') {
+    addStep(`<span class="k">live_context</span> injected by the Orchestrator before the squad ran
+      <div style="color:var(--muted);font-size:11.5px">first look: ${esc(m.args.ref)}</div>
+      <div class="meta">${esc(summarize(m.result))}</div>`, 'mcp');
     return;
   }
   // an MCP call
@@ -349,14 +361,16 @@ function connect() {
       $('pKafka').className = 'pill ' + (m.connected ? 'on' : 'off');
     } else if (m.kind === 'event') {
       nEvents++; $('pEvents').textContent = nEvents + ' events';
-      const i = Math.max(0, TOPICS.indexOf(m.topic)), color = TOPIC_COLOR[m.topic] || '#38bdf8';
-      pulse(['g2t' + i, 't2c' + i, 'c2s'], color, 380);
-      glow('nState', color);
+      const i = Math.max(0, TOPICS.indexOf(m.topic)), refused = m.gate === 'BLOCK';
+      const color = refused ? '#f87171' : (TOPIC_COLOR[m.topic] || '#38bdf8');
+      if (refused) { pulse(['g2t' + i, 't2c' + i], color, 380); glow('nGate', color); }
+      else { pulse(['g2t' + i, 't2c' + i, 'c2s'], color, 380); glow('nState', color); }
       const ev = m.event || {}, key = ev.invoice_id || ev.vendor_id || '';
       const lg = $('log'); if (lg.querySelector('.empty')) lg.innerHTML = '';
       const row = document.createElement('div');
       row.innerHTML = `<span class="t" style="background:${color}22;color:${color}">${esc(m.topic)}</span>#${m.offset} · ${esc(ev.type)} · ${esc(key)}`
-        + (ev.amount ? ` · $${Number(ev.amount).toLocaleString()}` : '') + (ev.reason ? ` · ${esc(ev.reason)}` : '') + (ev.note ? ' · note' : '');
+        + (ev.amount ? ` · $${Number(ev.amount).toLocaleString()}` : '') + (ev.reason ? ` · ${esc(ev.reason)}` : '') + (ev.note ? ' · note' : '')
+        + (refused ? ` · <b style="color:#f87171">refused at the gate, quarantined</b> <span style="color:var(--muted)">${esc((m.reason || '').replace(/^k9x_Shield blocked ingress /, ''))}</span>` : '');
       lg.prepend(row); while (lg.children.length > 60) lg.lastChild.remove();
       refreshSoon();
     } else if (m.kind === 'mcp') {

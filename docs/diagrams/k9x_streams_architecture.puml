@@ -1,0 +1,42 @@
+@startuml k9x_streams_architecture
+title K9X Streams: deployment view
+
+node "Your producers" {
+  [ERP / AP system] as ERP
+  [CDC connector] as CDC
+  [Demo generator] as GEN
+}
+
+node "Kafka (Apache Kafka, Redpanda, Confluent, MSK)" {
+  queue "ap.invoice.updated" as T1
+  queue "ap.payment.posted" as T2
+  queue "ap.vendor.flagged" as T3
+}
+
+node "K9X Streams service" {
+  [KafkaEventFabric] as FAB
+  [GovernanceEventGate\n(k9x Shield)] as GATE
+  [InMemoryContextState\n+ AP projections] as STATE
+  [ContextMCPServer\n/mcp] as MCP
+}
+
+node "K9-AIF solution" {
+  [PaymentReleaseOrchestrator\n(context_state)] as ORCH
+  [payment_release squad] as SQ
+  [PaymentReleaseAgent\n(MCP client, Shield)] as AG
+}
+
+ERP --> T1
+CDC --> T2
+GEN --> T3
+T1 --> FAB
+T2 --> FAB
+T3 --> FAB
+FAB --> GATE : every event
+GATE --> STATE : PERMIT: apply\nBLOCK: quarantine
+STATE --> MCP
+STATE --> ORCH : live_context
+ORCH --> SQ
+SQ --> AG
+AG --> MCP : re-check before acting
+@enduml
