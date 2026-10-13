@@ -2,10 +2,10 @@
 # K9X Streams
 """PaymentReleaseOrchestrator: runs the payment-release squad with live context.
 
-A K9-AIF BaseOrchestrator given the context fabric's state (context_state=). For every
-flow it names the entities the flow is about (live_context_refs); execute_squads() then
-adds their current values as payload["live_context"] before the squad runs. It knows
-squads only; the agent is registered at the entry point (app.py)."""
+A K9-AIF BaseOrchestrator given k9x Origin (origin=). The squad declares what it needs in
+config/origin.yaml (live_context: ["invoice:{invoice_id}"]); execute_squads() resolves it
+for each payload before the squad runs. It knows squads only; the agent is registered at
+the entry point (app.py)."""
 
 from __future__ import annotations
 
@@ -22,6 +22,5 @@ class PaymentReleaseOrchestrator(BaseOrchestrator):
         self.squads = squads
 
     def execute_flow(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        payload = {**payload, "live_context_refs": [f"invoice:{payload['invoice_id']}"]}
         results = self.execute_squads(self.squads, payload)
         return {"status": "completed", **results}

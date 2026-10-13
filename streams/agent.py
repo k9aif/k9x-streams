@@ -4,9 +4,9 @@
 approved invoice, on live context from the context fabric.
 
 It gets live context both ways the framework offers:
-  1. injected: the Orchestrator adds payload["live_context"]["invoice:<id>"] before the
-     squad runs (BaseOrchestrator, context_state + live_context_refs);
-  2. on demand: just before releasing, it re-checks over MCP (ContextMCPServer, called with
+  1. injected: k9x Origin resolves the squad's declared live_context (config/origin.yaml)
+     before the squad runs (BaseOrchestrator(origin=...));
+  2. on demand: just before releasing, it re-checks over MCP (k9x Origin, called with
      the framework's MCPStreamableHttpConnector). Every MCP result is screened by k9x Shield
      (screen_tool_result): stream data is untrusted input.
 
@@ -15,7 +15,6 @@ Decision rules (deterministic, explainable):
   vendor flagged (sanctions list)              -> HOLD: vendor flagged
   an event for it refused at the gate          -> HOLD for human review (quarantined)
   a result withheld by Shield                  -> HOLD for human review
-  invoice state stale (older than the maximum) -> HOLD: stale data, refused
   otherwise                                    -> RELEASE
 """
 
@@ -95,14 +94,15 @@ class PaymentReleaseAgent(BaseAgent):
             return self._decide(run, inv_id, "HOLD", f"vendor flagged: {flag.get('reason')} ({flag.get('list')}), "
                                 f"{vendor.get('age_seconds')} s ago")
         for entity in (inv, vendor):
-            if entity.get("quarantined"):
-                q = entity["quarantined"][-1]
+            q = (entity.get("flags") or {}).get("quarantined")
+            if q:
                 who = inv["value"].get("vendor_name") if entity is vendor else None
                 return self._decide(run, inv_id, "HOLD",
                                     f"a {q['event_type']} event for {who or entity['entity'] + ' ' + entity['id']} was refused at the "
                                     f"stream gate by k9x Shield ({q['blocked_by']}); held for human review")
-        if inv.get("stale"):
-            return self._decide(run, inv_id, "HOLD", f"stale data: invoice state is {inv['age_seconds']} s old")
+        conflict = (inv.get("flags") or {}).get("conflict")
+        if conflict:
+            return self._decide(run, inv_id, "HOLD", f"conflicting data on the invoice: {conflict['detail']}")
         return self._decide(run, inv_id, "RELEASE",
                             f"approved, unpaid, vendor clear; live state as of {inv.get('as_of')}")
 

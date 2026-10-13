@@ -1,0 +1,29 @@
+# k9x Origin — K9X Streams' Accounts Payable demo.
+# Entities agents may ask about, the squads' live context, each agent's scope, and Shield
+# checks on requests and answers. Business decisions (HIL thresholds) are not here.
+
+entities:
+  invoice:
+    key: invoice_id
+    conflicts:
+      status:                              # flagged as a conflict; business rules decide what follows
+        transitions: ["approved -> rejected", "rejected -> approved", "paid -> approved"]
+        within_seconds: 300
+  vendor:
+    key: vendor_id
+  payment:
+    key: payment_id
+
+squads:
+  payment_release:
+    live_context: ["invoice:{invoice_id}"]   # resolved from the payload before the squad runs
+
+agents:                                     # least privilege: what each agent may ask about
+  PaymentReleaseAgent:  { allowed_entities: [invoice, vendor, payment] }
+  CashForecastAgent:    { allowed_entities: [invoice] }
+  VendorRiskAgent:      { allowed_entities: [vendor] }
+  AuditAgent:           { allowed_entities: [invoice, vendor, payment] }
+
+governance:
+  request_checks: [PromptInjectionCheck, PIIRequestCheck]
+  answer_checks:  [PromptInjectionCheck, PIIBoundaryCheck]

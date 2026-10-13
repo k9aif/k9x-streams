@@ -3,7 +3,7 @@
 """The context fabric, assembled from K9-AIF building blocks (1.17):
 
     KafkaEventFabric → GovernanceEventGate (k9x Shield) → InMemoryContextState (AP projections)
-                     → ContextMCPServer (get_current / recent_changes / query at /mcp)
+                     → k9x Origin (one call for agents: get_current / recent_changes / query at /mcp)
 
 Nothing here reads Kafka or stores state itself; it configures the framework's classes
 through StreamsFactory and forwards what happens to the live page (hub)."""
@@ -13,10 +13,12 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict
 
 from k9_aif_abb.k9_factories.streams_factory import StreamsFactory
-from k9_aif_abb.k9_mcp.servers.context_mcp_server import ContextMCPServer
+from k9_aif_abb.k9_factories.origin_factory import OriginFactory
+from k9_aif_abb.k9_origin.mcp_server import OriginMCPServer
 from k9_aif_abb.k9_security.vulnerability.shield_governance import ShieldGovernance
 from k9_aif_abb.k9_streams import ContextIngest
 
@@ -45,11 +47,13 @@ FRAMEWORK_CONFIG: Dict[str, Any] = {
 }
 
 shield = ShieldGovernance(FRAMEWORK_CONFIG)
-# What an agent may *ask*: injection hidden in arguments, solicitations for PII.
-request_shield = ShieldGovernance({"security": {"shield": {
-    "enabled": True, "ingress": {"checks": ["PromptInjectionCheck", "PIIRequestCheck"]}}}})
-ALLOWED_ENTITIES = {"invoice", "vendor", "payment"}
 state = StreamsFactory.create_state(FRAMEWORK_CONFIG, projections=AP_PROJECTIONS)
+# k9x Origin over the same live state: scope, request/answer Shield and conflict flags come
+# from config/origin.yaml (built into the framework, like Shield).
+CONFIG_DIR = Path(__file__).resolve().parent.parent
+origin = OriginFactory.create({**FRAMEWORK_CONFIG, "origin": {"enabled": True, "config": "config/origin.yaml"}},
+                              state=state, base_dir=str(CONFIG_DIR))
+origin.conflict_listeners.append(lambda c: hub.publish("conflict", **c.to_dict()))
 gate = StreamsFactory.create_gate(FRAMEWORK_CONFIG, governance=shield)
 counts: Dict[str, int] = {}
 
@@ -65,11 +69,8 @@ def _on_event(e: Dict[str, Any]) -> None:
 
 
 ingest = ContextIngest(None, state, gate=gate, listeners=[_on_event])
-mcp_server = ContextMCPServer(
-    state, name="k9x-streams", governance=shield, request_governance=request_shield,
-    allowed_entities=ALLOWED_ENTITIES,
-    instructions=("Live Accounts Payable state built from Kafka streams. Entities: invoice, vendor, payment. "
-                  "Every result has as_of, age_seconds and stale; do not act on stale values."),
+mcp_server = OriginMCPServer(
+    origin, name="k9x-streams",
     on_call=lambda c: hub.publish("mcp", tool=c["tool"], args=c["args"], ms=c["ms"], as_of=c["as_of"],
                                   age=c["age_seconds"], found=c["found"], screened=c["screened"],
                                   reason=(c.get("reason") or "")[:240]))

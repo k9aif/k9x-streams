@@ -376,9 +376,13 @@ function summarize(res) {
   if (v.payments && v.payments.length) bits.push('paid by ' + v.payments.map(p => p.payment_id).join(', '));
   if (v.flag) bits.push('flag: ' + v.flag.reason);
   if (v.notes && v.notes.length) bits.push('note: “' + v.notes[v.notes.length - 1].slice(0, 70) + '…”');
-  if (res.quarantined && res.quarantined.length) bits.push('quarantined: ' + res.quarantined.map(q => q.event_type + ' (' + q.blocked_by + ')').join(', '));
-  if (res.stale) bits.push('STALE');
-  return bits.join(' · ') + `\nas_of ${res.as_of} · ${res.age_seconds} s old · ${res.source ? res.source.topic + ' #' + res.source.offset : ''}`;
+  const fl = res.flags || {};
+  if (fl.quarantined) bits.push('quarantined: ' + fl.quarantined.event_type + ' (' + fl.quarantined.blocked_by + ')');
+  if (fl.conflict) bits.push('conflict: ' + fl.conflict.detail);
+  if (fl.in_review) bits.push('in review');
+  const src = res.source || {};
+  const where = src.kind === 'system_of_record' ? 'from ' + src.system : (src.topic ? src.topic + ' #' + src.offset : '');
+  return bits.join(' · ') + `\nas_of ${res.as_of} · ${res.age_seconds} s old · ${where}`;
 }
 function onAgent(m) {
   if (m.step === 'note') { addStep(`${esc(m.text)}`); return; }

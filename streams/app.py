@@ -153,7 +153,7 @@ async def _run_scenario(name: str, run: str, inv: Dict[str, Any]) -> None:
         squad = BaseSquad("payment_release", [agent])
         squad.flow = [{"agent": "PaymentReleaseAgent"}]
         orchestrator = PaymentReleaseOrchestrator([squad], config=fabric.FRAMEWORK_CONFIG,
-                                                  governance=fabric.shield, context_state=fabric.state)
+                                                  governance=fabric.shield, origin=fabric.origin)
         loop = asyncio.get_running_loop()
         task = loop.run_in_executor(None, orchestrator.execute_flow,
                                     {"invoice_id": inv["invoice_id"], "run": run, "review_seconds": 4})
@@ -198,7 +198,8 @@ def _sim_question(agent: str) -> Dict[str, Any]:
         return {"tool": "get_current", "args": {"entity": "vendor", "id": random.choice(vendors)["id"]},
                 "why": "Is this vendor flagged or quarantined right now?"}
     if agent == "cash_forecast":
-        return {"tool": "query", "args": {"entity": "invoice", "status": "approved", "min_amount": 10000},
+        return {"tool": "query", "args": {"entity": "invoice", "filters": {"status": "approved"},
+                                          "minimum": {"amount": 10000}},
                 "why": "Which approved invoices over $10,000 are waiting to be paid?"}
     return {"tool": "recent_changes", "args": {"entity": "invoice", "id": random.choice(recent)["id"],
                                                "window_seconds": 600},
