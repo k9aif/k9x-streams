@@ -159,8 +159,7 @@
       <a href="#model">Reference model</a><a href="#provides">What it provides</a>
       <a href="#how">How it works</a>
       <a href="#demo">The demo</a>
-      <a href="#kafka">Your Kafka</a><a href="#use">Use it</a>
-      <a href="#architecture">Architecture</a>
+      <a href="/implement">Implement</a>
       <a href="#scope">Scope</a>
       <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">GitHub ↗</a>
       <a class="cta" href="/demo">Open the live demo</a>
@@ -181,7 +180,7 @@
         k9x Shield before an agent reads a word of it.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="/demo">Open the live demo →</a>
-        <a class="btn btn-ghost" href="#model">The reference model</a>
+        <a class="btn btn-ghost" href="/implement">How to implement it</a>
       </div>
     </div>
   </div>
@@ -240,22 +239,7 @@
         <li>Agent re-checks over MCP <span>· before it pays, approves, ships</span></li>
         <li>HIL when data is stale or quarantined</li></ul></div>
     </div>
-    <table class="k" style="margin-top:18px">
-      <thead><tr><th>Source</th><th>How it reaches a Kafka topic</th></tr></thead>
-      <tbody>
-        <tr><td>Relational databases (PostgreSQL, Oracle, SQL Server, MySQL)</td><td>Change data capture (Debezium on Kafka Connect): every insert, update and delete becomes an event</td></tr>
-        <tr><td>Business applications</td><td>The application publishes domain events, or its own Kafka connector does</td></tr>
-        <tr><td>Application log files</td><td>A log shipper (Fluent Bit, Vector, Filebeat) sends each line to a topic</td></tr>
-        <tr><td>IoT devices</td><td>An MQTT broker with a Kafka bridge</td></tr>
-        <tr><td>SaaS webhooks and REST APIs</td><td>A small receiver or poller publishes to a topic</td></tr>
-        <tr><td>Files and batch drops</td><td>A Kafka Connect file or S3 source connector</td></tr>
-        <tr><td>Amazon Kinesis Data Streams</td><td>A bridge connector to Kafka (Kinesis Data Firehose only delivers to storage, so agents cannot consume from it)</td></tr>
-      </tbody>
-    </table>
-    <p class="note">Sources keep their own format: an envelope mapper per topic turns each message into an event
-      (<code>debezium</code> for database change records, <code>log_line</code> for application logs, or your own via
-      <code>register_mapper</code>); a webhook receiver can skip Kafka with <code>ContextIngest.ingest_raw()</code>. How to build on the model:
-      <a href="#use">Use it in your solution →</a></p>
+    <p class="note"><a href="/implement">How to implement it in your solution →</a> sources, the five steps, security controls and the architecture.</p>
   </section>
 
   <section id="provides" class="n">
@@ -305,106 +289,6 @@
       <div class="sc" style="--c:var(--red)"><b>4 · Poisoned stream event</b><p>A vendor note carries hidden instructions to pay a new account. Shield refuses it at the gate; the vendor is quarantined.</p><div class="out">→ HOLD for human review</div></div>
     </div>
     <p class="note"><a href="/demo">Open the live demo →</a> Start the generator, then run a scenario and watch each event, each MCP call and the decision.</p>
-  </section>
-
-  <section id="kafka" class="n">
-    <h2>Your organization's Kafka or Confluent</h2>
-    <p class="sub">K9X Streams speaks the Kafka protocol, so it connects to the broker you already run. Set it in <code>.env</code>; no code changes.</p>
-    <table class="k">
-      <thead><tr><th>Broker</th><th>Settings</th></tr></thead>
-      <tbody>
-        <tr><td>Apache Kafka, Redpanda</td><td><code>KAFKA_BROKER=host:9092</code></td></tr>
-        <tr><td>Confluent Platform</td><td><code>KAFKA_BROKER</code>; plus <code>KAFKA_SECURITY_PROTOCOL</code> and SASL settings if your cluster requires sign-in</td></tr>
-        <tr><td>Confluent Cloud</td><td><code>KAFKA_SECURITY_PROTOCOL=SASL_SSL</code>, <code>KAFKA_SASL_MECHANISM=PLAIN</code>, API key and secret as <code>KAFKA_SASL_USERNAME</code> / <code>KAFKA_SASL_PASSWORD</code></td></tr>
-        <tr><td>Amazon MSK and others</td><td><code>SASL_SSL</code> with <code>SCRAM-SHA-512</code> (or your cluster's mechanism)</td></tr>
-        <tr><td>Your topic names</td><td><code>STREAMS_TOPIC_INVOICE</code>, <code>STREAMS_TOPIC_PAYMENT</code>, <code>STREAMS_TOPIC_VENDOR</code></td></tr>
-      </tbody>
-    </table>
-    <p class="note">Events are JSON today; Avro with Schema Registry is next. The adapter for a broker stays a configuration choice,
-      never a dependency: the framework stays vendor-neutral.</p>
-  </section>
-
-  <section id="use" class="n">
-    <h2>Use it in your solution: build on the reference model</h2>
-    <p class="sub">Everything here is the K9-AIF framework's context fabric (1.17); K9X Streams adds only its Accounts Payable
-      projections, a generator, one orchestrator and one agent. A solution in any domain that needs streaming data follows the same five steps.</p>
-    <div class="use">
-      <div class="u"><div><h3>Turn on the fabric</h3><p>In your solution's <code>config.yaml</code>. Broker and credentials stay in <code>.env</code>.</p></div>
-<pre>streams:
-  enabled: true
-  provider: kafka
-  kafka: {auto_offset_reset: earliest}   # replay: topics are the source of truth
-  state: {max_age_seconds: 120}          # older values are reported stale
-  gate: governance                       # every event through security.shield
-  mappers: {default: auto, dbserver.public.policies: debezium}</pre></div>
-      <div class="u"><div><h3>One projection per business event</h3><p>Map source records to the entities your agents reason about. This is the only domain code the fabric needs.</p></div>
-<pre>class PolicyProjection(BaseContextProjection):
-    entity, id_field = "policy", "policy_id"
-    def accepts(self, env): return env.event_type.startswith("policy.")
-    def project(self, env): return {"status": env.payload["status"],
-                                    "premium": env.payload["premium"]}</pre></div>
-      <div class="u"><div><h3>Wire it at the entry point</h3><p>Through <code>StreamsFactory</code>, where agents are registered. The gate refuses to run ungoverned in production.</p></div>
-<pre>state = StreamsFactory.create_state(config, projections=[PolicyProjection()])
-gate  = StreamsFactory.create_gate(config)
-ContextIngest(StreamsFactory.create_fabric(config), state, gate=gate) \
-    .attach(["policy.updated"])
-mcp = ContextMCPServer(state).build_fastmcp()     # mount at /mcp</pre></div>
-      <div class="u"><div><h3>Hand agents the context</h3><p>Give your orchestrator the state; name what each flow is about. Squads receive <code>payload["live_context"]</code>.</p></div>
-<pre>orch = ClaimsOrchestrator(config, governance=shield, context_state=state)
-orch.execute_flow({"claim_id": "C-1",
-                   "live_context_refs": ["policy:P-001"]})</pre></div>
-      <div class="u"><div><h3>Re-check before acting</h3><p>An agent about to pay, approve or ship asks again over MCP and refuses stale or quarantined data.</p></div>
-<pre>cur = await mcp_client.call_tool("get_current", {"entity": "policy", "id": "P-001"})
-await screen_tool_result(shield, "get_current", cur)
-if cur["stale"] or cur.get("quarantined"): raise RequiresHIL(...)</pre></div>
-    </div>
-    <p class="note">Full recipe: <a href="https://github.com/k9aif/k9-aif-framework/blob/main/docs/developers/Developer-guide.md#157-live-context-from-event-streams-context-fabric-117" target="_blank" rel="noopener">Developer Guide 15.7 ↗</a></p>
-  </section>
-
-  <section id="architecture" class="n">
-    <h2>Architecture</h2>
-    <p class="sub">Framework building blocks, configured: Kafka in, a governed live state in the middle, MCP and the Orchestrator out.</p>
-    <div class="fig">
-      <svg viewBox="0 0 1060 210" font-family="Space Grotesk, Helvetica, Arial, sans-serif" aria-label="Producers to Kafka to K9X Streams (consumer, live state, MCP server) to K9-AIF agents">
-        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6b8a"/></marker></defs>
-        <g fill="none" stroke="#5b6b8a" stroke-width="2">
-          <path d="M175,105 L222,105" marker-end="url(#ar)"/><path d="M398,105 L445,105" marker-end="url(#ar)"/>
-          <path d="M832,105 L879,105" marker-end="url(#ar)"/>
-        </g>
-        <rect x="15" y="55" width="160" height="100" rx="12" fill="#101a2e" stroke="#38bdf8"/>
-        <text x="95" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Your producers</text>
-        <text x="95" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">apps, CDC, devices,</text>
-        <text x="95" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">or the demo generator</text>
-        <rect x="225" y="55" width="173" height="100" rx="12" fill="#101a2e" stroke="#34d399"/>
-        <text x="311" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Kafka</text>
-        <text x="311" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">Apache Kafka, Redpanda,</text>
-        <text x="311" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">Confluent, MSK</text>
-        <rect x="448" y="25" width="384" height="160" rx="14" fill="rgba(56,189,248,.05)" stroke="#38bdf8" stroke-dasharray="5 4"/>
-        <text x="640" y="47" fill="#38bdf8" font-size="13" font-weight="700" text-anchor="middle">K9X Streams</text>
-        <rect x="465" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
-        <text x="517" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Shield gate</text>
-        <text x="517" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">k9x Shield</text>
-        <rect x="588" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
-        <text x="640" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Live state</text>
-        <text x="640" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">projections</text>
-        <rect x="711" y="65" width="105" height="80" rx="10" fill="#17132b" stroke="#a78bfa"/>
-        <text x="763" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">MCP server</text>
-        <text x="763" y="118" fill="#a78bfa" font-size="11" text-anchor="middle">/mcp</text>
-        <g stroke="#5b6b8a" stroke-width="1.6" fill="none"><path d="M570,105 L586,105" marker-end="url(#ar)"/><path d="M693,105 L709,105" marker-end="url(#ar)"/></g>
-        <rect x="882" y="40" width="165" height="130" rx="12" fill="#101a2e" stroke="#22d3ee"/>
-        <text x="964" y="72" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">K9-AIF solution</text>
-        <text x="964" y="94" fill="#a3b1c6" font-size="12" text-anchor="middle">Orchestrator: live_context</text>
-        <text x="964" y="114" fill="#a3b1c6" font-size="12" text-anchor="middle">agents: MCP re-check</text>
-        <text x="964" y="134" fill="#a3b1c6" font-size="12" text-anchor="middle">k9x Shield on results</text>
-        <text x="964" y="154" fill="#a3b1c6" font-size="12" text-anchor="middle">HIL when it matters</text>
-      </svg>
-    </div>
-    <div class="figs">
-      <div class="fig"><a href="/images/k9x_streams_class.png" target="_blank"><img src="/images/k9x_streams_class.png" alt="K9X Streams classes on the K9-AIF framework" loading="lazy"></a>
-        <p>Classes: four projections, one orchestrator and one agent extend K9-AIF; everything else is the framework.</p></div>
-      <div class="fig tall"><a href="/images/k9x_streams_architecture.png" target="_blank"><img src="/images/k9x_streams_architecture.png" alt="K9X Streams deployment view" loading="lazy"></a>
-        <p>Deployment view: producers, topics, the K9X Streams service and a K9-AIF solution.</p></div>
-    </div>
   </section>
 
   <section id="k9aif">
