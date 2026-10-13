@@ -98,6 +98,20 @@
   .log .t { padding: 0 6px; border-radius: 4px; margin-right: 8px; font-weight: 700; }
   footer { color: var(--muted); font-size: 12px; padding: 18px 0 28px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
   footer a { color: var(--inv); text-decoration: none; }
+  .sim { margin-top: 14px; }
+  .sim .agents { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0 12px; }
+  .sim .ag { text-align: left; background: #0b1220; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+             color: var(--text); cursor: pointer; font: inherit; }
+  .sim .ag:hover { border-color: #22d3ee; }
+  .sim .ag b { display: block; font-size: 13.5px; } .sim .ag span { font-size: 12px; color: var(--muted); }
+  .sim .ag.busy { border-color: #a78bfa; box-shadow: 0 0 0 1px #a78bfa inset; }
+  .sim .feed { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .sim .x { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; font-size: 12.5px; padding: 8px 10px;
+            border-radius: 8px; background: #0b1220; border: 1px solid var(--border); }
+  .sim .x .who { font-weight: 700; color: #22d3ee; }
+  .sim .x.ans .who { color: #a78bfa; }
+  .sim .x code { font-size: 12px; } .sim .x .meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: pre-wrap; }
+  @media (max-width: 900px) { .sim .agents { grid-template-columns: 1fr 1fr; } .sim .x { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -179,6 +193,21 @@
       </g>
       <text x="20" y="242" fill="#5f6f8a" font-size="11.5" font-family="ui-monospace, Menlo, monospace">dots: one per Kafka event (topic colour), red when the gate refuses it · violet: an MCP call from the agent to the live state and back</text>
     </svg>
+  </div>
+
+  <div class="card sim">
+    <h2>Agent simulator <span style="text-transform:none;letter-spacing:0;font-weight:500"> · sample agents asking the MCP server for live context</span></h2>
+    <div class="row">
+      <button class="btn primary" id="bSim">Run simulator</button>
+      <span style="font-size:12px;color:var(--muted)">or click an agent to send one request. Start the generator first so there is live data to ask about.</span>
+    </div>
+    <div class="agents">
+      <button class="ag" data-a="payment"><b>Payment agent</b><span>get_current(invoice): still approved and unpaid?</span></button>
+      <button class="ag" data-a="vendor_risk"><b>Vendor-risk agent</b><span>get_current(vendor): flagged or quarantined?</span></button>
+      <button class="ag" data-a="cash_forecast"><b>Cash-forecast agent</b><span>query(approved invoices over $10,000)</span></button>
+      <button class="ag" data-a="audit"><b>Audit agent</b><span>recent_changes(invoice, last 10 min)</span></button>
+    </div>
+    <div class="feed" id="simFeed"><div class="empty">Requests and answers appear here: agent → MCP server, then MCP server → agent, with the value's age.</div></div>
   </div>
 
   <div class="grid">
@@ -386,6 +415,8 @@ function connect() {
       glow('nAgent', '#22d3ee');
     } else if (m.kind === 'inject') {
       addStep(`<b style="color:var(--block)">⚡ The world changed:</b> ${esc(m.text)}`, 'inject');
+    } else if (m.kind === 'sim') {
+      onSim(m);
     } else if (m.kind === 'generator') {
       setGen(m.running, m.rate);
     }
@@ -401,6 +432,47 @@ document.querySelectorAll('.scen button').forEach(b => b.onclick = async () => {
   const r = await fetch('/api/scenario/' + b.dataset.s, {method: 'POST'});
   if (!r.ok) { setBusy(false); const d = await r.json().catch(() => ({})); addStep(`<b style="color:var(--block)">${esc(d.detail || 'HTTP ' + r.status)}</b>`, 'inject'); }
 });
+// ── agent simulator ──
+function simAnswer(m) {
+  const r = m.result || {};
+  if (m.screened !== 'passed') return 'withheld by k9x Shield';
+  if (r.rows) {
+    const total = r.rows.reduce((t, x) => t + Number((x.value || {}).amount || 0), 0);
+    return `${r.count} invoice(s), $${total.toLocaleString('en-US', {maximumFractionDigits: 0})} · as_of ${r.as_of}`;
+  }
+  if (r.found === false) return `no events for ${r.entity} ${r.id} yet` + (r.entity === 'vendor' ? ' (nothing flagged)' : '');
+  if (r.changes) return `${r.changes.length} change(s): ` + r.changes.map(c => `${c.type} (${c.seconds_ago} s ago)`).join(', ');
+  return summarize(r);
+}
+function simAdd(cls, who, html) {
+  const f = $('simFeed'); if (f.querySelector('.empty')) f.innerHTML = '';
+  const d = document.createElement('div'); d.className = 'x ' + cls; d.innerHTML = `<div class="who">${who}</div><div>${html}</div>`;
+  f.prepend(d); while (f.children.length > 40) f.lastChild.remove();
+}
+function onSim(m) {
+  const btn = document.querySelector(`.ag[data-a="${m.agent}"]`);
+  if (m.phase === 'ask') {
+    if (btn) btn.classList.add('busy');
+    glow('nAgent', '#22d3ee');
+    simAdd('ask', esc(m.name) + ' → MCP', `<code>${esc(m.tool)}(${esc(JSON.stringify(m.args))})</code><div class="meta">${esc(m.why)}</div>`);
+  } else if (m.phase === 'answer') {
+    if (btn) setTimeout(() => btn.classList.remove('busy'), 400);
+    simAdd('ans', 'MCP → ' + esc(m.name), `${esc(simAnswer(m))}<div class="meta">${m.ms} ms · Shield: ${esc(m.screened)}</div>`);
+  } else if (m.phase === 'error') {
+    if (btn) btn.classList.remove('busy');
+    simAdd('ans', 'MCP → ' + esc(m.name), `<b style="color:var(--block)">${esc(m.error)}</b>`);
+  }
+}
+const ask = a => fetch('/api/simulate/' + a, {method: 'POST'}).catch(() => {});
+document.querySelectorAll('.ag').forEach(b => b.onclick = () => ask(b.dataset.a));
+let simTimer = null;
+$('bSim').onclick = () => {
+  if (simTimer) { clearInterval(simTimer); simTimer = null; $('bSim').textContent = 'Run simulator'; return; }
+  const names = ['payment', 'vendor_risk', 'cash_forecast', 'audit'];
+  let next = 0; const tick = () => ask(names[next++ % names.length]);
+  tick(); simTimer = setInterval(tick, 1800); $('bSim').textContent = 'Stop simulator';
+};
+
 loadState().catch(() => {}); connect();
 </script>
 </body>

@@ -170,6 +170,65 @@ async def _run_scenario(name: str, run: str, inv: Dict[str, Any]) -> None:
                         invoice_id=inv["invoice_id"])
 
 
+# ── Agent simulator: sample agents asking the MCP server, over real MCP ──────────────
+SIM_AGENTS = {
+    "payment": "Payment agent",
+    "vendor_risk": "Vendor-risk agent",
+    "cash_forecast": "Cash-forecast agent",
+    "audit": "Audit agent",
+}
+
+
+def _sim_question(agent: str) -> Dict[str, Any]:
+    """What this sample agent would ask now, picked from what is in live state."""
+    import random
+    invoices = fabric.state.query("invoice")["rows"]
+    vendors = fabric.state.query("vendor")["rows"] or [{"id": v[0]} for v in VENDORS]
+    recent = sorted(invoices, key=lambda r: r["age_seconds"])[:12] or [{"id": "INV-1001"}]
+    if agent == "payment":
+        approved = [r for r in recent if r.get("value", {}).get("status") == "approved"] or recent
+        return {"tool": "get_current", "args": {"entity": "invoice", "id": random.choice(approved)["id"]},
+                "why": "Is this invoice still approved and unpaid before I release payment?"}
+    if agent == "vendor_risk":
+        return {"tool": "get_current", "args": {"entity": "vendor", "id": random.choice(vendors)["id"]},
+                "why": "Is this vendor flagged or quarantined right now?"}
+    if agent == "cash_forecast":
+        return {"tool": "query", "args": {"entity": "invoice", "status": "approved", "min_amount": 10000},
+                "why": "Which approved invoices over $10,000 are waiting to be paid?"}
+    return {"tool": "recent_changes", "args": {"entity": "invoice", "id": random.choice(recent)["id"],
+                                               "window_seconds": 600},
+            "why": "What changed on this invoice in the last 10 minutes?"}
+
+
+@app.post("/api/simulate/{agent}")
+async def simulate(agent: str):
+    """One sample agent asks the MCP server one question, with the framework's MCP client;
+    the answer is screened by k9x Shield like any tool result."""
+    from k9_aif_abb.k9_core.integration.mcp_streamable_http_connector import MCPStreamableHttpConnector
+    from k9_aif_abb.k9_security.tool_result_guard import screen_tool_result
+    import time as _time
+    if agent not in SIM_AGENTS:
+        raise HTTPException(404, f"unknown agent; one of {sorted(SIM_AGENTS)}")
+    q = _sim_question(agent)
+    hub.publish("sim", phase="ask", agent=agent, name=SIM_AGENTS[agent], **q)
+    client = MCPStreamableHttpConnector({"name": "k9x-streams", "kwargs": {"url": config.MCP_URL, "timeout": 10}})
+    t0 = _time.time()
+    try:
+        result = await client.call_tool(q["tool"], q["args"])
+    except Exception as exc:
+        hub.publish("sim", phase="error", agent=agent, name=SIM_AGENTS[agent], error=str(exc)[:200])
+        raise HTTPException(502, f"MCP call failed: {exc}")
+    ms = round((_time.time() - t0) * 1000, 1)
+    try:
+        await screen_tool_result(fabric.shield, q["tool"], result, {"agent": SIM_AGENTS[agent]})
+        screened = "passed"
+    except PermissionError:
+        screened, result = "withheld", {"withheld_by_governance": True}
+    out = {"agent": agent, "name": SIM_AGENTS[agent], **q, "ms": ms, "screened": screened, "result": result}
+    hub.publish("sim", phase="answer", **out)
+    return out
+
+
 app.mount("/images", StaticFiles(directory=str(WEB / "images")), name="images")
 
 # MCP endpoint at /mcp (FastMCP's streamable-HTTP app), mounted last so the routes above win.
