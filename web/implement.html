@@ -166,7 +166,7 @@
     <nav>
       <a href="/">Overview</a>
       <a href="#model">Reference model</a>
-      <a href="#use">Steps</a>
+      <a href="#use">Five steps</a>
       <a href="#security">Security</a>
       <a href="#architecture">Architecture</a>
       <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">GitHub ↗</a>
@@ -207,14 +207,14 @@
       <div class="col fab"><h4>3 · K9-AIF context fabric</h4><ul>
         <li><code>KafkaEventFabric</code></li>
         <li><code>GovernanceEventGate</code> <span>· k9x Shield; refused → quarantined</span></li>
-        <li>your projections → <code>BaseContextState</code> <span>· as_of, stale, source</span></li>
-        <li><code>ContextMCPServer</code> <span>· /mcp</span></li></ul></div>
+        <li>your projections → live state <span>· as_of, version, source</span></li>
+        <li><b>k9x Origin</b> <span>· one call for agents, over MCP</span></li></ul></div>
       <div class="arrow">→</div>
       <div class="col sol"><h4>4 · Your K9-AIF solution</h4><ul>
         <li>Orchestrator <span>· hands squads <code>live_context</code></span></li>
         <li>Squad → agents</li>
         <li>Agent re-checks over MCP <span>· before it pays, approves, ships</span></li>
-        <li>HIL when data is stale or quarantined</li></ul></div>
+        <li>Business rules → HIL on conflicts, quarantine, thresholds</li></ul></div>
     </div>
     <table class="k" style="margin-top:18px">
       <thead><tr><th>Source</th><th>How it reaches a Kafka topic</th></tr></thead>
@@ -235,39 +235,54 @@
 
   <section id="use" class="n">
     <h2>Five steps</h2>
-    <p class="sub">Everything here is the K9-AIF framework's context fabric (1.17); K9X Streams adds only its Accounts Payable
-      projections, a generator, one orchestrator and one agent. A solution in any domain that needs streaming data follows the same five steps.</p>
+    <p class="sub">k9x Origin is built into the K9-AIF framework (1.18), like k9x Shield. K9X Streams adds only its Accounts
+      Payable projections, a generator, one orchestrator and one agent. A solution in any domain follows the same five steps.</p>
     <div class="use">
-      <div class="u"><div><h3>Turn on the fabric</h3><p>In your solution's <code>config.yaml</code>. Broker and credentials stay in <code>.env</code>.</p></div>
-<pre>streams:
+      <div class="u"><div><h3>Switch on k9x Origin</h3><p>In <code>config/config.yaml</code>. Broker addresses and credentials stay in <code>.env</code>.</p></div>
+<pre>origin:
   enabled: true
+  config: config/origin.yaml
+  state: {provider: redis}        # in_memory | redis (shared, LRU-bounded)
+streams:
+  enabled: true                   # off: Origin answers from systems of record only
   provider: kafka
-  kafka: {auto_offset_reset: earliest}   # replay: topics are the source of truth
-  state: {max_age_seconds: 120}          # older values are reported stale
-  gate: governance                       # every event through security.shield
-  mappers: {default: auto, dbserver.public.policies: debezium}</pre></div>
-      <div class="u"><div><h3>One projection per business event</h3><p>Map source records to the entities your agents reason about. This is the only domain code the fabric needs.</p></div>
-<pre>class PolicyProjection(BaseContextProjection):
-    entity, id_field = "policy", "policy_id"
-    def accepts(self, env): return env.event_type.startswith("policy.")
+security:
+  shield: {enabled: true}</pre></div>
+      <div class="u"><div><h3>Describe entities and sources</h3><p>In <code>config/origin.yaml</code>: what agents may ask about, where each entity's system of record is, what each squad needs, and each agent's scope.</p></div>
+<pre>entities:
+  claim:
+    key: claim_id
+    system_of_record: claims_api     # read-through on a miss, verify before acting
+    owned_fields: [status, amount]
+    conflicts: {status: {transitions: ["approved -> disapproved"]}}
+sources:
+  claims_api: {type: mcp, server: "${CLAIMS_MCP_URL}", tool: get_claim}
+squads:
+  payout: {live_context: ["claim:{claim_id}"], verify_before: [PayoutAgent]}
+agents:
+  PayoutAgent: {allowed_entities: [claim, policy]}</pre></div>
+      <div class="u"><div><h3>One projection per business event</h3><p>Map source records to the entities your agents reason about. This is the only domain code Origin needs.</p></div>
+<pre>class ClaimProjection(BaseContextProjection):
+    entity, id_field = "claim", "claim_id"
+    def accepts(self, env): return env.event_type.startswith("claim.")
     def project(self, env): return {"status": env.payload["status"],
-                                    "premium": env.payload["premium"]}</pre></div>
-      <div class="u"><div><h3>Wire it at the entry point</h3><p>Through <code>StreamsFactory</code>, where agents are registered. The gate refuses to run ungoverned in production.</p></div>
-<pre>state = StreamsFactory.create_state(config, projections=[PolicyProjection()])
-gate  = StreamsFactory.create_gate(config)
-ContextIngest(StreamsFactory.create_fabric(config), state, gate=gate) \
-    .attach(["policy.updated"])
-mcp = ContextMCPServer(state).build_fastmcp()     # mount at /mcp</pre></div>
-      <div class="u"><div><h3>Hand agents the context</h3><p>Give your orchestrator the state; name what each flow is about. Squads receive <code>payload["live_context"]</code>.</p></div>
-<pre>orch = ClaimsOrchestrator(config, governance=shield, context_state=state)
-orch.execute_flow({"claim_id": "C-1",
-                   "live_context_refs": ["policy:P-001"]})</pre></div>
-      <div class="u"><div><h3>Re-check before acting</h3><p>An agent about to pay, approve or ship asks again over MCP and refuses stale or quarantined data.</p></div>
-<pre>cur = await mcp_client.call_tool("get_current", {"entity": "policy", "id": "P-001"})
-await screen_tool_result(shield, "get_current", cur)
-if cur["stale"] or cur.get("quarantined"): raise RequiresHIL(...)</pre></div>
+                                    "amount": env.payload["amount"]}</pre></div>
+      <div class="u"><div><h3>Wire it at the entry point</h3><p>One factory call. Orchestrators get <code>origin=</code>; agents reach it over MCP with the framework's client. Production refuses an ungoverned Origin.</p></div>
+<pre>origin = OriginFactory.create(config, projections=[ClaimProjection()])
+ContextIngest(StreamsFactory.create_fabric(config), origin.state,
+              gate=StreamsFactory.create_gate(config)).attach(["claim.updated"])
+orch = PayoutOrchestrator(config, governance=shield, origin=origin)
+app.mount("/", OriginMCPServer(origin).http_app())      # MCP at /mcp</pre></div>
+      <div class="u"><div><h3>Decide with business rules</h3><p>Origin states facts. A rules step in the squad decides, and raises a K9X HIL case when a rule says so. The agent itself makes one call: <code>get_current("claim", "C-1")</code>.</p></div>
+<pre>rules_agent:
+  adapter: k9_rules                  # or rest_rules (a decision service)
+  hil_queue: claims-review
+  rules:
+    - {name: large claim,   when: "claim.amount > 5000",           then: hil}
+    - {name: data conflict, when: "live_context.*.flags.conflict", then: hil}</pre></div>
     </div>
-    <p class="note">Full recipe: <a href="https://github.com/k9aif/k9-aif-framework/blob/main/docs/developers/Developer-guide.md#157-live-context-from-event-streams-context-fabric-117" target="_blank" rel="noopener">Developer Guide 15.7 ↗</a></p>
+    <p class="note">Full recipe: <a href="https://github.com/k9aif/k9-aif-framework/blob/main/docs/developers/Developer-guide.md" target="_blank" rel="noopener">Developer Guide 15.8 ↗</a> ·
+      design: <a href="https://github.com/k9aif/k9-aif-framework/blob/main/docs/roadmap/k9x-origin-design.md" target="_blank" rel="noopener">k9x Origin design ↗</a></p>
   </section>
 
   <section id="kafka" class="n">
@@ -296,10 +311,11 @@ if cur["stale"] or cur.get("quarantined"): raise RequiresHIL(...)</pre></div>
       <tbody>
         <tr><td>Stream gate</td><td>Before live state</td><td>Planted instructions, payment diversion, PII values in events</td><td><code>GovernanceEventGate</code> with <code>PromptInjectionCheck</code>, <code>PaymentDiversionCheck</code>, <code>PIIBoundaryCheck</code> (<code>block_on_match</code>)</td></tr>
         <tr><td>Quarantine</td><td>Live state</td><td>A refused event's content ever being read</td><td>Automatic: the entity is marked <code>quarantined</code>; agents hold for human review</td></tr>
-        <tr><td>Entity scope</td><td>MCP server, before any read</td><td>Requests for data outside the server's domain</td><td><code>ContextMCPServer(allowed_entities=...)</code></td></tr>
-        <tr><td>Request screening</td><td>MCP server, before any read</td><td>Instructions in tool arguments, solicitations for PII</td><td><code>request_governance</code>: <code>PromptInjectionCheck</code>, <code>PIIRequestCheck</code></td></tr>
-        <tr><td>Answer screening</td><td>MCP server and agent</td><td>PII or instructions in what an agent reads</td><td><code>governance</code> on the server; <code>screen_tool_result</code> in the agent</td></tr>
-        <tr><td>Freshness</td><td>Agent decision</td><td>Acting on old data</td><td><code>streams.state.max_age_seconds</code>; agents refuse <code>stale</code> values</td></tr>
+        <tr><td>Entity scope</td><td>MCP server, before any read</td><td>Requests for data outside the server's domain</td><td><code>origin.yaml</code>: <code>agents.&lt;name&gt;.allowed_entities</code></td></tr>
+        <tr><td>Request screening</td><td>MCP server, before any read</td><td>Instructions in tool arguments, solicitations for PII</td><td><code>origin.yaml</code>: <code>governance.request_checks</code> (<code>PromptInjectionCheck</code>, <code>PIIRequestCheck</code>)</td></tr>
+        <tr><td>Answer screening</td><td>MCP server and agent</td><td>PII or instructions in what an agent reads</td><td><code>origin.yaml</code>: <code>governance.answer_checks</code>; <code>screen_tool_result</code> in the agent</td></tr>
+        <tr><td>Source order</td><td>Live state</td><td>A late event overwriting newer data</td><td>Automatic: events apply by when they happened; late ones are kept in history only</td></tr>
+        <tr><td>Conflict flags</td><td>Every answer</td><td>Acting on data that flipped, arrived out of order, or disagrees with its system of record</td><td><code>origin.yaml</code>: <code>entities.&lt;name&gt;.conflicts</code>; business rules decide (e.g. → HIL)</td></tr>
       </tbody>
     </table>
   </section>
@@ -323,7 +339,18 @@ if cur["stale"] or cur.get("quarantined"): raise RequiresHIL(...)</pre></div>
 
   <section id="architecture" class="n">
     <h2>Architecture</h2>
-    <p class="sub">Framework building blocks, configured: Kafka in, a governed live state in the middle, MCP and the Orchestrator out.</p>
+    <p class="sub">For solution architects: where k9x Origin sits, how it is filled, and its classes in the framework; then the K9X Streams application on top.</p>
+    <div class="figs">
+      <div class="fig"><a href="/images/k9x_origin_big_picture.png" target="_blank"><img src="/images/k9x_origin_big_picture.png" alt="An agent's three paths: knowledge, current truth, actions" loading="lazy"></a>
+        <p>An agent's three paths: knowledge (retriever), current truth (k9x Origin), actions (systems of record), each screened by k9x Shield.</p></div>
+      <div class="fig"><a href="/images/k9x_origin_data_in.png" target="_blank"><img src="/images/k9x_origin_data_in.png" alt="How data reaches k9x Origin" loading="lazy"></a>
+        <p>How data reaches k9x Origin: pushed by streams through the Shield gate, pulled from systems of record on demand.</p></div>
+      <div class="fig"><a href="/images/k9x_origin_flow.png" target="_blank"><img src="/images/k9x_origin_flow.png" alt="One get_current call, step by step" loading="lazy"></a>
+        <p>One <code>get_current</code> call, step by step: scope, request screening, live state or read-through, verify, flags, answer screening.</p></div>
+      <div class="fig"><a href="/images/k9x_origin_class.png" target="_blank"><img src="/images/k9x_origin_class.png" alt="k9x Origin classes in K9-AIF" loading="lazy"></a>
+        <p>k9x Origin classes in the framework (<code>k9_origin</code>), with the state backends, adapters and the rules agent.</p></div>
+    </div>
+    <h3 style="margin:22px 0 8px">The K9X Streams application</h3>
     <div class="fig">
       <svg viewBox="0 0 1060 210" font-family="Space Grotesk, Helvetica, Arial, sans-serif" aria-label="Producers to Kafka to K9X Streams (consumer, live state, MCP server) to K9-AIF agents">
         <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6b8a"/></marker></defs>

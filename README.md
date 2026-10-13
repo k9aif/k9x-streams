@@ -9,20 +9,20 @@ each with an `as_of` timestamp, under the framework's governance (Shield screeni
 results, Zero Trust scope, PII masking). Rules on a stream can also start agents through the
 K9-AIF Router.
 
-Status: Phase 1 running, built on the K9-AIF **context fabric** (framework 1.17). Design notes: [DESIGN.md](DESIGN.md).
+Status: running at [streams.k9x.ai](https://streams.k9x.ai), the reference demo of **k9x Origin** (K9-AIF 1.18), which is built into the framework like k9x Shield. Design notes: [DESIGN.md](DESIGN.md).
 
 ## How it is built
 
 K9X Streams is an application built on K9-AIF. The streaming machinery is the framework's;
 this repository adds only the Accounts Payable parts.
 
-| From the K9-AIF framework (1.17) | In this repository |
+| From the K9-AIF framework (1.18) | In this repository |
 |---|---|
 | `KafkaEventFabric`, `EventEnvelope` | `streams/generator.py`: simulated AP events |
 | `GovernanceEventGate` with `ShieldGovernance` (`PromptInjectionCheck`, `PaymentDiversionCheck`) | `streams/fabric.py`: wiring through `StreamsFactory` |
 | `BaseContextProjection`, `InMemoryContextState` | `streams/projections.py`: invoice, payment, vendor flag, vendor note |
 | `ContextIngest` | |
-| `ContextMCPServer` (`/mcp`) | |
+| k9x Origin: `OriginFactory`, `K9Origin`, `OriginMCPServer` (`/mcp`) | `config/origin.yaml`: entities, squads, agent scopes, Shield checks |
 | `BaseOrchestrator(context_state=...)`, `BaseSquad` | `streams/orchestrator.py`: `PaymentReleaseOrchestrator` |
 | `BaseAgent`, `MCPStreamableHttpConnector`, `screen_tool_result` | `streams/agent.py`: `PaymentReleaseAgent` |
 

@@ -129,6 +129,16 @@
   .model code { font-size: 12px; }
   .ref-badge { display: inline-block; font: 700 11px var(--mono); color: #04121c; background: var(--pay); border-radius: 4px; padding: 2px 8px; margin-bottom: 10px; letter-spacing: .06em; }
   @media (max-width: 1000px) { .model { grid-template-columns: 1fr; } .model .arrow { transform: rotate(90deg); justify-self: center; } }
+  .lego-fig { padding: 18px 14px; overflow-x: auto; }
+  .lego { width: 100%; height: auto; min-width: 720px; display: block; }
+  .lego .flow { stroke-dasharray: 6 8; animation: legoflow 1.4s linear infinite; }
+  @keyframes legoflow { to { stroke-dashoffset: -28; } }
+  @media (prefers-reduced-motion: reduce) { .lego .flow { animation: none; } }
+  .ocards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0 26px; }
+  .ocards .oc { background: var(--card); border: 1px solid var(--border); border-top: 2px solid var(--sky); border-radius: 10px; padding: 14px; }
+  .ocards .oc b { display: block; margin-bottom: 4px; } .ocards .oc span { color: var(--muted); font-size: 13.5px; }
+  .lego-h { margin: 6px 0 10px; font-size: 17px; }
+  @media (max-width: 900px) { .ocards { grid-template-columns: 1fr 1fr; } }
   .fig { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
   .fig svg { width: 100%; height: auto; display: block; }
 
@@ -156,7 +166,7 @@
     <a class="logo" href="/"><span>K9X</span> Streams</a>
     <span class="tag">BETA</span>
     <nav>
-      <a href="#model">Reference model</a><a href="#provides">What it provides</a>
+      <a href="#origin">k9x Origin</a><a href="#model">Reference model</a><a href="#provides">What it provides</a>
       <a href="#how">How it works</a>
       <a href="#demo">The demo</a>
       <a href="/implement">Implement</a>
@@ -173,7 +183,7 @@
   <canvas id="flow" aria-hidden="true"></canvas>
   <div class="wrap hero">
     <div class="text" id="heroText">
-      <div class="eyebrow">Reference model · real-time context for agents <span class="oss">Open source · Apache 2.0</span></div>
+      <div class="eyebrow">k9x Origin reference demo · real-time context for agents <span class="oss">Open source · Apache 2.0</span></div>
       <h1>AI agents don't run on <em>yesterday's data</em>.</h1>
       <p class="lede">K9X Streams turns your event streams into live, governed context that agents built on K9-AIF ask for
         over MCP: the current state of what they reason about, what just changed, and how fresh it is, checked by
@@ -209,6 +219,189 @@
     </div>
   </section>
 
+  <section id="origin" class="n">
+    <span class="ref-badge" style="background:var(--sky)">K9X ORIGIN</span>
+    <h2>k9x Origin: one call for what is true right now</h2>
+    <p class="sub">k9x Origin is built into the K9-AIF framework, like k9x Shield. An agent asks one question,
+      <code>get_current(entity, id)</code>, and gets the current value, when it changed, where it came from, and any reason
+      not to trust it. K9X Streams is the reference demo you can run.</p>
+    <div class="fig lego-fig">
+      <svg class="lego" viewBox="0 0 1120 560" font-family="Space Grotesk, Helvetica, Arial, sans-serif" role="img" aria-label="An agent's three paths: knowledge, current truth through k9x Origin, and actions; k9x Shield screens every path">
+<defs><marker id="oa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7b8baa"/></marker>
+<filter id="og" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect x="40" y="160" width="1040" height="140" rx="18" fill="rgba(34,211,238,.05)" stroke="#22d3ee" stroke-dasharray="6 6"/>
+<text x="60" y="184" fill="#22d3ee" font-size="12.5" font-weight="700">k9x Shield screens every path</text>
+<rect x="499" y="33" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="549" y="33" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="599" y="33" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="460" y="40" width="200" height="64" rx="12" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<text x="560.0" y="68" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Agent</text>
+<text x="560.0" y="88" fill="#22d3ee" font-size="12" text-anchor="middle">one call to know · one call to act</text>
+<rect x="846" y="33" width="22" height="9" rx="3" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="904" y="33" width="22" height="9" rx="3" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="962" y="33" width="22" height="9" rx="3" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="800" y="40" width="230" height="64" rx="12" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="915.0" y="68" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Business rules</text>
+<text x="915.0" y="88" fill="#f59e0b" font-size="12" text-anchor="middle">K9RulesAgent → person (HIL)</text>
+<path class="flow" d="M660,72 L796,72" fill="none" stroke="#5b6b8a" stroke-width="2" marker-end="url(#oa)"/>
+<path class="flow" d="M520,104 C520,150 300,140 300,196" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#oa)"/>
+<path class="flow" d="M560,104 L560,194" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#oa)"/>
+<path class="flow" d="M600,104 C600,150 910,140 910,196" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#oa)"/>
+<rect x="134" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="199" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="264" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="80" y="200" width="260" height="80" rx="12" fill="#0d1424" stroke="#a78bfa" stroke-width="1.6"/>
+<text x="210.0" y="236" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">K9Retriever</text>
+<text x="210.0" y="256" fill="#a78bfa" font-size="12" text-anchor="middle">Knowledge · what do our documents say?</text>
+<rect x="479" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4"/>
+<rect x="549" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4"/>
+<rect x="619" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4"/>
+<rect x="420" y="200" width="280" height="80" rx="12" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4" filter="url(#og)"/>
+<text x="560.0" y="236" fill="#eef4fb" font-size="17" font-weight="700" text-anchor="middle">k9x Origin</text>
+<text x="560.0" y="256" fill="#38bdf8" font-size="12" text-anchor="middle">Current truth · what is true right now?</text>
+<rect x="834" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="899" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="964" y="193" width="22" height="9" rx="3" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="780" y="200" width="260" height="80" rx="12" fill="#0d1424" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="910.0" y="236" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">MCP tools · APIs</text>
+<text x="910.0" y="256" fill="#f59e0b" font-size="12" text-anchor="middle">Actions · change something</text>
+<path class="flow" d="M210,280 L210,356" fill="none" stroke="#a78bfa" stroke-width="2" marker-end="url(#oa)"/>
+<path class="flow" d="M560,280 L560,356" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#oa)"/>
+<path class="flow" d="M910,280 L910,356" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#oa)"/>
+<path class="flow" d="M700,258 C760,300 760,330 790,356" fill="none" stroke="#7b8baa" stroke-width="2" marker-end="url(#oa)"/>
+<text x="752" y="336" fill="#a3b1c6" font-size="12" text-anchor="end">pull: read-through · verify</text>
+<rect x="121" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="173" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="225" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="277" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#a78bfa" stroke-width="1.6"/>
+<rect x="80" y="362" width="260" height="70" rx="12" fill="#101a2e" stroke="#a78bfa" stroke-width="1.6"/>
+<text x="210.0" y="393" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Vector database</text>
+<text x="210.0" y="413" fill="#a78bfa" font-size="12" text-anchor="middle">policies · contracts · manuals</text>
+<rect x="465" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="521" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="577" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="633" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="420" y="362" width="280" height="70" rx="12" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="560.0" y="393" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Live state</text>
+<text x="560.0" y="413" fill="#38bdf8" font-size="12" text-anchor="middle">memory · Redis · as_of · version</text>
+<rect x="821" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="873" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="925" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="977" y="355" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="780" y="362" width="260" height="70" rx="12" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="910.0" y="393" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Systems of record</text>
+<text x="910.0" y="413" fill="#f59e0b" font-size="12" text-anchor="middle">ERP · claims · payments</text>
+<rect x="494" y="471" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="549" y="471" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="604" y="471" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="450" y="478" width="220" height="60" rx="12" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<text x="560.0" y="504" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Event streams</text>
+<text x="560.0" y="524" fill="#34d399" font-size="12" text-anchor="middle">Kafka · Confluent · Flink</text>
+<path class="flow" d="M910,432 C910,500 720,508 674,508" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#oa)"/>
+<text x="860" y="530" fill="#a3b1c6" font-size="12" text-anchor="middle">changes become events</text>
+<path class="flow" d="M450,508 C380,508 380,440 418,420" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#oa)"/>
+<text x="372" y="470" fill="#a3b1c6" font-size="12" text-anchor="middle">push</text>
+</svg>
+    </div>
+    <div class="ocards">
+      <div class="oc"><b>One call</b><span>The agent never chooses between streams, databases and APIs. Origin answers from live
+        state, reads through to the system of record when it must, and says which it used.</span></div>
+      <div class="oc"><b>Facts, not decisions</b><span>Every answer carries <code>as_of</code>, <code>source</code>,
+        <code>version</code> and flags. Whether a claim over $5,000 needs a person is a business rule, not Origin's call.</span></div>
+      <div class="oc"><b>Governed in and out</b><span>Shield screens every event, every request and every answer. Each agent
+        sees only the entities it is allowed to; conflicts and quarantined data are always flagged.</span></div>
+      <div class="oc"><b>Read-only by design</b><span>Origin is for knowing. Actions go to the systems that own the data,
+        carrying Origin's <code>version</code>, so they are refused if anything changed.</span></div>
+    </div>
+    <h3 class="lego-h">How Origin is filled</h3>
+    <div class="fig lego-fig">
+      <svg class="lego" viewBox="0 0 1200 400" font-family="Space Grotesk, Helvetica, Arial, sans-serif" role="img" aria-label="How data reaches k9x Origin: pushed in by streams, pulled on demand from sources">
+<defs><marker id="ob" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7b8baa"/></marker></defs>
+<text x="20" y="22" fill="#34d399" font-size="13" font-weight="700">Pushed in, continuously</text>
+<rect x="66" y="37" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="122" y="37" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="20" y="44" width="170" height="46" rx="12" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<text x="105.0" y="63" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Databases</text>
+<text x="105.0" y="83" fill="#34d399" font-size="12" text-anchor="middle">change data capture</text>
+<rect x="66" y="105" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="122" y="105" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="20" y="112" width="170" height="46" rx="12" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<text x="105.0" y="131" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Business apps</text>
+<text x="105.0" y="151" fill="#34d399" font-size="12" text-anchor="middle">domain events</text>
+<rect x="66" y="173" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="122" y="173" width="22" height="9" rx="3" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<rect x="20" y="180" width="170" height="46" rx="12" fill="#101a2e" stroke="#34d399" stroke-width="1.6"/>
+<text x="105.0" y="199" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Logs · IoT</text>
+<text x="105.0" y="219" fill="#34d399" font-size="12" text-anchor="middle">shippers · bridges</text>
+<rect x="272" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#34d399" stroke-width="1.6"/>
+<rect x="314" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#34d399" stroke-width="1.6"/>
+<rect x="356" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#34d399" stroke-width="1.6"/>
+<rect x="240" y="92" width="170" height="84" rx="12" fill="#0d1424" stroke="#34d399" stroke-width="1.6"/>
+<text x="325.0" y="130" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Kafka · Confluent</text>
+<text x="325.0" y="150" fill="#34d399" font-size="12" text-anchor="middle">optional Flink curation</text>
+<rect x="489" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="539" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="450" y="92" width="150" height="84" rx="12" fill="#0d1424" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="525.0" y="130" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Mappers</text>
+<text x="525.0" y="150" fill="#38bdf8" font-size="12" text-anchor="middle">debezium · logs · native</text>
+<rect x="682" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="736" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="640" y="92" width="160" height="84" rx="12" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<text x="720.0" y="130" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">k9x Shield gate</text>
+<text x="720.0" y="150" fill="#22d3ee" font-size="12" text-anchor="middle">refused → quarantined</text>
+<rect x="879" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="929" y="85" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="840" y="92" width="150" height="84" rx="12" fill="#0d1424" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="915.0" y="130" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Projections</text>
+<text x="915.0" y="150" fill="#38bdf8" font-size="12" text-anchor="middle">one per business event</text>
+<rect x="1069" y="85" width="22" height="9" rx="3" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="1119" y="85" width="22" height="9" rx="3" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<rect x="1030" y="92" width="150" height="84" rx="12" fill="#101a2e" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="1105.0" y="130" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Live state</text>
+<text x="1105.0" y="150" fill="#38bdf8" font-size="12" text-anchor="middle">as_of · version</text>
+<text x="20" y="282" fill="#f59e0b" font-size="13" font-weight="700">Pulled on demand</text>
+<rect x="59" y="297" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="109" y="297" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="20" y="304" width="150" height="60" rx="12" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="95.0" y="330" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">MCP servers</text>
+<text x="95.0" y="350" fill="#f59e0b" font-size="12" text-anchor="middle">type: mcp</text>
+<rect x="229" y="297" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="279" y="297" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="190" y="304" width="150" height="60" rx="12" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="265.0" y="330" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">REST APIs</text>
+<text x="265.0" y="350" fill="#f59e0b" font-size="12" text-anchor="middle">type: api</text>
+<rect x="399" y="297" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="449" y="297" width="22" height="9" rx="3" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<rect x="360" y="304" width="150" height="60" rx="12" fill="#101a2e" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="435.0" y="330" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">SQL databases</text>
+<text x="435.0" y="350" fill="#f59e0b" font-size="12" text-anchor="middle">type: sql</text>
+<rect x="694" y="289" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4"/>
+<rect x="759" y="289" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4"/>
+<rect x="824" y="289" width="22" height="9" rx="3" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4"/>
+<rect x="640" y="296" width="260" height="76" rx="12" fill="#0d1424" stroke="#38bdf8" stroke-width="2.4" filter="url(#og)"/>
+<text x="770.0" y="330" fill="#eef4fb" font-size="17" font-weight="700" text-anchor="middle">k9x Origin</text>
+<text x="770.0" y="350" fill="#38bdf8" font-size="12" text-anchor="middle">get_current · recent_changes · query</text>
+<rect x="1069" y="293" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="1119" y="293" width="22" height="9" rx="3" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<rect x="1030" y="300" width="150" height="68" rx="12" fill="#0d1424" stroke="#22d3ee" stroke-width="1.6"/>
+<text x="1105.0" y="330" fill="#eef4fb" font-size="15" font-weight="700" text-anchor="middle">Agent</text>
+<text x="1105.0" y="350" fill="#22d3ee" font-size="12" text-anchor="middle">one call</text>
+<path class="flow" d="M190,67 C215,67 215,120 238,124" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M190,135 L238,135" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M190,203 C215,203 215,150 238,146" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M410,134 L448,134" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M600,134 L638,134" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M800,134 L838,134" fill="none" stroke="#22d3ee" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M990,134 L1028,134" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#ob)"/>
+<path class="flow" d="M1030,334 L904,334" fill="none" stroke="#22d3ee" stroke-width="2" marker-end="url(#ob)"/><text x="966" y="324" fill="#a3b1c6" font-size="12" text-anchor="middle">one call</text>
+<path class="flow" d="M840,296 C900,250 1040,240 1092,180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#ob)"/><text x="905" y="236" fill="#a3b1c6" font-size="12" text-anchor="middle">answer in milliseconds</text>
+<path class="flow" d="M640,334 L514,334" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#ob)"/><text x="576" y="324" fill="#a3b1c6" font-size="12" text-anchor="middle">read-through · verify</text>
+</svg>
+    </div>
+    <p class="note">For solution architects: the configuration, the five steps and the class diagrams are on
+      <a href="/implement">How to implement it →</a></p>
+  </section>
+
   <section id="model" class="n">
     <span class="ref-badge">REFERENCE MODEL</span>
     <h2>The reference model for streaming agentic applications on K9-AIF</h2>
@@ -230,14 +423,14 @@
       <div class="col fab"><h4>3 · K9-AIF context fabric</h4><ul>
         <li><code>KafkaEventFabric</code></li>
         <li><code>GovernanceEventGate</code> <span>· k9x Shield; refused → quarantined</span></li>
-        <li>your projections → <code>BaseContextState</code> <span>· as_of, stale, source</span></li>
-        <li><code>ContextMCPServer</code> <span>· /mcp</span></li></ul></div>
+        <li>your projections → live state <span>· as_of, version, source</span></li>
+        <li><b>k9x Origin</b> <span>· one call for agents, over MCP</span></li></ul></div>
       <div class="arrow">→</div>
       <div class="col sol"><h4>4 · Your K9-AIF solution</h4><ul>
         <li>Orchestrator <span>· hands squads <code>live_context</code></span></li>
         <li>Squad → agents</li>
         <li>Agent re-checks over MCP <span>· before it pays, approves, ships</span></li>
-        <li>HIL when data is stale or quarantined</li></ul></div>
+        <li>Business rules → HIL on conflicts, quarantine, thresholds</li></ul></div>
     </div>
     <p class="note"><a href="/implement">How to implement it in your solution →</a> sources, the five steps, security controls and the architecture.</p>
   </section>
@@ -249,8 +442,8 @@
     <div class="rows">
       <div class="r"><h3>Live context over MCP</h3><p><code>get_current</code>, <code>recent_changes</code> and <code>query</code>,
         called with the framework's own MCP client (<code>MCPStreamableHttpConnector</code>). No new client code in your agents.</p></div>
-      <div class="r"><h3>Freshness you can check</h3><p>Every answer carries <code>as_of</code> and <code>age_seconds</code>. An agent
-        refuses to decide on a value older than the limit you set (<code>STREAMS_MAX_AGE_SECONDS</code>).</p></div>
+      <div class="r"><h3>Facts the rules can use</h3><p>Every answer carries <code>as_of</code>, <code>age_seconds</code> and
+        <code>version</code>. Whether an age matters for a decision is a business rule, not something Origin decides.</p></div>
       <div class="r"><h3>Provenance on every value</h3><p>Each value names the Kafka topic and offset of the event that set it, so a
         decision can be traced back to the exact record behind it.</p></div>
       <div class="r"><h3>Governed twice</h3><p>Stream data is untrusted input. Every event passes k9x Shield at the gate
@@ -296,7 +489,7 @@
       <h2>Built on the K9-AIF framework</h2>
       <p><b>K9-AIF (Agentic Integration Framework)</b> is an architecture-first framework for building governed, secure, and enterprise-scale AI applications. Built on OOA/OOD principles and TOGAF-aligned, it brings consistency, governance, and auditability to agentic systems from day one. Every Router, Orchestrator, Squad and Agent in an application built on K9-AIF extends a K9-AIF Architecture Building Block, so governance, human review and auditability are inherited, not hand-built per application.</p>
       <p class="keyline"><b>Security checks that keep pace with new attacks.</b> AI is now used to attack applications that are themselves built with AI: instructions hidden in documents, agents impersonating other agents, poisoned tool results. K9-AIF tracks these attack techniques as they are published and adds matching checks to the framework's governance pipeline. Solutions built on K9-AIF pick up the new checks with a framework upgrade, without rewriting their own agents. K9X Sentinel reads newly published attacks every day and checks each one against the framework's security capabilities.</p>
-      <p>The <b>K9X ecosystem</b> brings the framework to life: <b class="p-hil">K9X HIL</b> (the human decisions an agent can pause for), <b class="p-sentinel">K9X Sentinel</b> (above), <b class="p-satan">K9X Satan</b> (an adversarial harness that proves the defences hold), and now <b>K9X Streams</b>, the reference application for the framework's context fabric (1.17): <code>KafkaEventFabric</code>, <code>GovernanceEventGate</code>, <code>BaseContextState</code>, <code>ContextMCPServer</code> and live context on every <code>BaseOrchestrator</code>.</p>
+      <p>The <b>K9X ecosystem</b> brings the framework to life: <b class="p-hil">K9X HIL</b> (the human decisions an agent can pause for), <b class="p-sentinel">K9X Sentinel</b> (above), <b class="p-satan">K9X Satan</b> (an adversarial harness that proves the defences hold), and now <b>K9X Streams</b>, the reference demo of <b>k9x Origin</b> (K9-AIF 1.18): one governed call for what is true right now, built into the framework like k9x Shield.</p>
       <div class="chips">
         <a class="chip" href="https://k9x.ai" target="_blank" rel="noopener">k9x.ai ↗</a>
         <a class="chip p-hil" href="https://hil.k9x.ai" target="_blank" rel="noopener">K9X HIL ↗</a>
