@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K9X Streams — real-time, governed context for agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* K9X landing standard (hero, what it provides, how it works, demo, architecture, K9-AIF, scope);
+     K9X Streams' own palette: sky blue on deep navy. */
+  :root {
+    --bg: #070b14; --card: #0d1424; --card2: #101a2e; --border: #1e2a44; --text: #dbe4f0; --muted: #a3b1c6;
+    --sky: #38bdf8; --sky-d: #0ea5e9; --pay: #34d399; --amber: #f59e0b; --mcp: #a78bfa; --red: #f87171;
+    --mono: ui-monospace, Menlo, Consolas, monospace; --head: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  a { color: var(--sky); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+  header.top { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); background: rgba(10,16,30,.92); backdrop-filter: blur(6px); }
+  header.top .wrap { display: flex; align-items: center; gap: 14px; padding-block: 12px; flex-wrap: wrap; }
+  .logo { font: 700 18px var(--head); color: var(--text); text-decoration: none; }
+  .logo span { color: var(--sky); }
+  .tag { font: 700 10.5px var(--mono); color: var(--sky); border: 1px solid var(--sky); border-radius: 4px; padding: 2px 6px; }
+  nav { margin-left: auto; display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; }
+  nav a { color: var(--muted); text-decoration: none; }
+  nav a:hover { color: var(--text); }
+  nav a.cta { color: #04121c; background: var(--sky); border-radius: 6px; padding: 5px 12px; font-weight: 700; }
+  section[id] { scroll-margin-top: 64px; }
+
+  /* Hero: incoming streams converging into K9X Streams (the image's core), answers leaving over MCP.
+     The core sits at 50% x / 43% y of the image; .bg is shifted right so it lands beside the text. */
+  .hero-band { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); min-height: 640px; background: #050a14; }
+  .hero-band .bg { position: absolute; top: 0; bottom: 0; left: 18%; right: -18%;
+                   background: url("/images/streams-hero.jpg") 50% 43% / cover no-repeat; }
+  .hero-band .shade { position: absolute; inset: 0;
+    background: linear-gradient(90deg, rgba(5,10,20,.96) 0%, rgba(5,10,20,.88) 28%, rgba(5,10,20,.35) 52%, rgba(5,10,20,0) 66%),
+                linear-gradient(180deg, rgba(5,10,20,0) 75%, var(--bg) 100%); }
+  .hero-band canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .hero { position: relative; z-index: 1; padding-block: 96px 104px; }
+  .hero .text { max-width: 560px; }
+  @media (max-width: 900px) {
+    .hero-band .bg { left: 0; right: 0; opacity: .5; }
+    .hero-band .shade { background: rgba(5,10,20,.65); }
+  }
+  .gets { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 36px; align-items: center; }
+  @media (max-width: 900px) { .gets { grid-template-columns: 1fr; } }
+  .eyebrow { font: 700 12px var(--mono); color: var(--pay); letter-spacing: .08em; text-transform: uppercase; }
+  .eyebrow .oss { margin-left: 8px; color: var(--sky); border: 1px solid rgba(56,189,248,.5); border-radius: 4px; padding: 1px 7px; text-transform: none; white-space: nowrap; display: inline-block; }
+  h1 { font: 700 clamp(34px, 5vw, 54px)/1.05 var(--head); margin: 12px 0 18px; letter-spacing: -1.2px; }
+  h1 em { font-style: normal; color: var(--sky); }
+  .lede { font-size: 17px; color: var(--muted); margin: 0 0 26px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 12px 22px; font-weight: 700; font-size: 15px;
+         text-decoration: none; border: 1px solid transparent; }
+  .btn-primary { background: var(--sky); color: #04121c; }
+  .btn-primary:hover { background: var(--sky-d); }
+  .btn-ghost { border-color: var(--border); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--sky); color: var(--sky); }
+  .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .answer { background: #0a1120; border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; font: 13px/1.65 var(--mono);
+            box-shadow: 0 20px 60px rgba(0,0,0,.35), 0 0 0 1px rgba(56,189,248,.08); }
+  .answer .q { color: var(--mcp); }
+  .answer .k { color: #7dd3fc; } .answer .s { color: #fde68a; } .answer .n { color: #86efac; }
+  .answer .hl { background: rgba(56,189,248,.12); border-radius: 4px; padding: 0 3px; }
+  .answer .cap { font: 12px -apple-system, "Segoe UI", sans-serif; color: var(--muted); margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+
+  main { counter-reset: sec; }
+  section { padding: 48px 0 8px; }
+  h2 { font: 700 27px var(--head); margin: 0 0 6px; letter-spacing: -.4px; }
+  section.n > h2::before { counter-increment: sec; content: "0" counter(sec) " / "; font: 600 13px var(--mono); color: var(--sky); vertical-align: middle; margin-right: 6px; }
+  .sub { color: var(--muted); margin: 0 0 22px; max-width: 800px; }
+  .rows { display: grid; gap: 0 48px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+  .r { border-top: 1px solid var(--border); padding: 16px 0 16px 22px; position: relative; }
+  .r::before { content: ""; position: absolute; left: 0; top: 25px; width: 8px; height: 8px; border-radius: 2px; background: var(--sky); transform: rotate(45deg); }
+  .r.designed::before { background: transparent; border: 1px solid var(--muted); }
+  .r h3 { margin: 0 0 4px; font: 600 17px var(--head); }
+  .r p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .r code { font-family: var(--mono); font-size: 13px; color: #7dd3fc; }
+  .soon { font: 700 10px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: middle; }
+
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; position: relative; margin-top: 8px; }
+  .steps::before { content: ""; position: absolute; left: 8px; right: 8px; top: 8px; height: 2px; background: linear-gradient(90deg, var(--sky), var(--mcp)); }
+  .st { position: relative; padding-top: 30px; }
+  .st::before { content: ""; position: absolute; left: 0; top: 0; width: 18px; height: 18px; border-radius: 50%; background: var(--bg); border: 3px solid var(--sky); }
+  .st i { font: 800 11px var(--mono); color: var(--sky); font-style: normal; }
+  .st b { display: block; font: 600 16px var(--head); margin: 2px 0 4px; }
+  .st span { color: var(--muted); font-size: 13.5px; }
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; } .steps::before { display: none; } }
+
+  .scen { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .sc { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; border-top: 3px solid var(--c); }
+  .sc b { font: 700 15px var(--head); display: block; margin-bottom: 4px; }
+  .sc p { margin: 0; color: var(--muted); font-size: 13.5px; }
+  .sc .out { margin-top: 10px; font: 12px var(--mono); color: var(--c); }
+
+  table.k { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.k th { text-align: left; font: 600 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  table.k td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.k code { font: 12.5px var(--mono); color: #7dd3fc; }
+  .note { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
+
+  .fig { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .fig svg { width: 100%; height: auto; display: block; }
+
+  .built-on { border: 1px solid rgba(242,179,61,0.28); border-radius: 12px; padding: 22px 24px; background: linear-gradient(160deg, rgba(242,179,61,0.07), rgba(20,32,58,0.6)); }
+  .built-on h2 { color: #f2b33d; }
+  .built-on p { color: var(--muted); margin: 12px 0 0; max-width: 780px; }
+  .built-on b { color: #c9d1de; font-weight: 600; }
+  .built-on .keyline { border-left: 2px solid rgba(242,179,61,0.45); padding-left: 12px; }
+  .built-on .keyline b { color: #e9c77a; }
+  .built-on b.p-hil, .chip.p-hil { color: #f0a46b; } .built-on b.p-sentinel, .chip.p-sentinel { color: #5fd4c3; } .built-on b.p-satan, .chip.p-satan { color: #e5534b; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { font: 600 12px var(--mono); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; color: var(--text); text-decoration: none; }
+  .chip:hover { border-color: #f2b33d; color: #f2b33d; }
+
+  .limits { border-left: 3px solid var(--sky); background: var(--card); border-radius: 0 10px 10px 0; padding: 16px 20px; }
+  .limits ul { margin: 6px 0 0; padding-left: 20px; color: var(--muted); }
+  .limits li { margin: 4px 0; }
+  footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 22px 0 34px; color: var(--muted); font-size: 13px; }
+  footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="/"><span>K9X</span> Streams</a>
+    <span class="tag">BETA</span>
+    <nav>
+      <a href="#provides">What it provides</a>
+      <a href="#how">How it works</a>
+      <a href="#demo">The demo</a>
+      <a href="#kafka">Your Kafka</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#scope">Scope</a>
+      <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">GitHub ↗</a>
+      <a class="cta" href="/demo">Open the live demo</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero-band">
+  <div class="bg" id="heroBg" aria-hidden="true"></div>
+  <div class="shade" aria-hidden="true"></div>
+  <canvas id="flow" aria-hidden="true"></canvas>
+  <div class="wrap hero">
+    <div class="text" id="heroText">
+      <div class="eyebrow">Real-time context for agents <span class="oss">Open source · Apache 2.0</span></div>
+      <h1>AI agents don't run on <em>yesterday's data</em>.</h1>
+      <p class="lede">K9X Streams turns your event streams into live, governed context that agents built on K9-AIF ask for
+        over MCP: the current state of what they reason about, what just changed, and how fresh it is, checked by
+        k9x Shield before an agent reads a word of it.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/demo">Open the live demo →</a>
+        <a class="btn btn-ghost" href="#provides">What it provides</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <section id="gets">
+    <div class="gets">
+      <div>
+        <h2>What an agent gets back</h2>
+        <p class="sub" style="margin-bottom:0">Not a document from last night: the value as it is now, how old it is, and the exact
+          event that set it. Here a payment-release agent re-checks an invoice just before releasing it.</p>
+      </div>
+      <div class="answer" aria-label="An MCP answer from K9X Streams">
+        <div class="q">agent → MCP get_current("invoice", "INV-1037")</div>
+        {<br>
+        &nbsp;&nbsp;<span class="k">"status"</span>: <span class="s">"paid"</span>,<br>
+        &nbsp;&nbsp;<span class="k">"payments"</span>: [{ <span class="k">"payment_id"</span>: <span class="s">"PAY-F957DF"</span> }],<br>
+        &nbsp;&nbsp;<span class="hl"><span class="k">"as_of"</span>: <span class="s">"22:14:09Z"</span></span>,
+        <span class="hl"><span class="k">"age_seconds"</span>: <span class="n">2.1</span></span>,<br>
+        &nbsp;&nbsp;<span class="k">"source"</span>: { <span class="k">"topic"</span>: <span class="s">"ap.payment.posted"</span>, <span class="k">"offset"</span>: <span class="n">2</span> }<br>
+        }<br>
+        <span class="q">Shield: passed · decision: HOLD, duplicate payment prevented</span>
+        <div class="cap">Two seconds earlier, another system paid this invoice. An agent reading yesterday's data would pay it again.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="provides" class="n">
+    <h2>What it provides to a solution built on K9-AIF</h2>
+    <p class="sub">A K9-AIF solution already has agents, squads, orchestrators and governance. K9X Streams adds the one thing a
+      snapshot can't give them: the world as it is right now, delivered the way the framework already handles tools.</p>
+    <div class="rows">
+      <div class="r"><h3>Live context over MCP</h3><p><code>get_current</code>, <code>recent_changes</code> and <code>query</code>,
+        called with the framework's own MCP client (<code>MCPStreamableHttpConnector</code>). No new client code in your agents.</p></div>
+      <div class="r"><h3>Freshness you can check</h3><p>Every answer carries <code>as_of</code> and <code>age_seconds</code>. An agent
+        refuses to decide on a value older than the limit you set (<code>STREAMS_MAX_AGE_SECONDS</code>).</p></div>
+      <div class="r"><h3>Provenance on every value</h3><p>Each value names the Kafka topic and offset of the event that set it, so a
+        decision can be traced back to the exact record behind it.</p></div>
+      <div class="r"><h3>Governed like any tool result</h3><p>Stream data is untrusted input. Answers pass k9x Shield
+        (<code>screen_tool_result</code>, with checks such as <code>PromptInjectionCheck</code> and <code>PaymentDiversionCheck</code>)
+        before an agent reads them.</p></div>
+      <div class="r"><h3>Rebuilt from the stream</h3><p>The live state replays from the topics on start, so Kafka stays the source of
+        truth and a restart loses nothing.</p></div>
+      <div class="r designed"><h3>Events that start agents <span class="soon">designed</span></h3><p>A rule on a stream ("payment
+        posted for an invoice under review") publishes a domain event, and the K9-AIF Router starts a squad, the same way events work today.</p></div>
+    </div>
+  </section>
+
+  <section id="how" class="n">
+    <h2>How it works</h2>
+    <p class="sub">Agents never read Kafka directly. A model can't drink from a firehose; at decision time it needs the current state
+      and what just changed.</p>
+    <div class="steps">
+      <div class="st"><i>1 · IN</i><b>Incoming data</b><span>Your producers, change data capture from databases, or the demo's generator publish events.</span></div>
+      <div class="st"><i>2 · KAFKA</i><b>Topics</b><span>Events land on topics: <code>ap.invoice.updated</code>, <code>ap.payment.posted</code>, <code>ap.vendor.flagged</code>.</span></div>
+      <div class="st"><i>3 · STATE</i><b>Live state</b><span>A consumer folds every event into the latest value per entity plus a short window of changes.</span></div>
+      <div class="st"><i>4 · MCP</i><b>Ask, with as_of</b><span>The MCP server answers with the value, its age and the event behind it.</span></div>
+      <div class="st"><i>5 · AGENT</i><b>Re-check, then act</b><span>A K9-AIF agent re-checks just before it acts; Shield screens each answer.</span></div>
+    </div>
+  </section>
+
+  <section id="demo" class="n">
+    <h2>What the demo shows</h2>
+    <p class="sub">Accounts Payable on simulated data. A payment-release agent reviews an approved invoice for a few seconds, and in
+      three of the four scenarios the world changes while it is reviewing.</p>
+    <div class="scen">
+      <div class="sc" style="--c:var(--pay)"><b>1 · Release payment</b><p>Nothing changes. The agent re-checks the live state and releases.</p><div class="out">→ RELEASE</div></div>
+      <div class="sc" style="--c:var(--amber)"><b>2 · Duplicate payment</b><p>Another system pays the invoice mid-review. Live state shows it, seconds old.</p><div class="out">→ HOLD, duplicate prevented</div></div>
+      <div class="sc" style="--c:var(--amber)"><b>3 · Vendor flagged</b><p>A sanctions flag for the vendor arrives on the stream mid-review.</p><div class="out">→ HOLD, vendor flagged</div></div>
+      <div class="sc" style="--c:var(--red)"><b>4 · Poisoned stream event</b><p>A vendor note carries hidden instructions to pay a new account. Shield blocks it.</p><div class="out">→ HOLD, untrusted data blocked</div></div>
+    </div>
+    <p class="note"><a href="/demo">Open the live demo →</a> Start the generator, then run a scenario and watch each event, each MCP call and the decision.</p>
+  </section>
+
+  <section id="kafka" class="n">
+    <h2>Your organization's Kafka or Confluent</h2>
+    <p class="sub">K9X Streams speaks the Kafka protocol, so it connects to the broker you already run. Set it in <code>.env</code>; no code changes.</p>
+    <table class="k">
+      <thead><tr><th>Broker</th><th>Settings</th></tr></thead>
+      <tbody>
+        <tr><td>Apache Kafka, Redpanda</td><td><code>KAFKA_BROKER=host:9092</code></td></tr>
+        <tr><td>Confluent Platform</td><td><code>KAFKA_BROKER</code>; plus <code>KAFKA_SECURITY_PROTOCOL</code> and SASL settings if your cluster requires sign-in</td></tr>
+        <tr><td>Confluent Cloud</td><td><code>KAFKA_SECURITY_PROTOCOL=SASL_SSL</code>, <code>KAFKA_SASL_MECHANISM=PLAIN</code>, API key and secret as <code>KAFKA_SASL_USERNAME</code> / <code>KAFKA_SASL_PASSWORD</code></td></tr>
+        <tr><td>Amazon MSK and others</td><td><code>SASL_SSL</code> with <code>SCRAM-SHA-512</code> (or your cluster's mechanism)</td></tr>
+        <tr><td>Your topic names</td><td><code>STREAMS_TOPIC_INVOICE</code>, <code>STREAMS_TOPIC_PAYMENT</code>, <code>STREAMS_TOPIC_VENDOR</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">Events are JSON today; Avro with Schema Registry is next. The adapter for a broker stays a configuration choice,
+      never a dependency: the framework stays vendor-neutral.</p>
+  </section>
+
+  <section id="architecture" class="n">
+    <h2>Architecture</h2>
+    <p class="sub">One small service beside your K9-AIF solution, connected to it only by MCP and Kafka.</p>
+    <div class="fig">
+      <svg viewBox="0 0 1060 210" font-family="Space Grotesk, Helvetica, Arial, sans-serif" aria-label="Producers to Kafka to K9X Streams (consumer, live state, MCP server) to K9-AIF agents">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6b8a"/></marker></defs>
+        <g fill="none" stroke="#5b6b8a" stroke-width="2">
+          <path d="M175,105 L222,105" marker-end="url(#ar)"/><path d="M398,105 L445,105" marker-end="url(#ar)"/>
+          <path d="M832,105 L879,105" marker-end="url(#ar)"/>
+        </g>
+        <rect x="15" y="55" width="160" height="100" rx="12" fill="#101a2e" stroke="#38bdf8"/>
+        <text x="95" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Your producers</text>
+        <text x="95" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">apps, CDC, devices,</text>
+        <text x="95" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">or the demo generator</text>
+        <rect x="225" y="55" width="173" height="100" rx="12" fill="#101a2e" stroke="#34d399"/>
+        <text x="311" y="96" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Kafka</text>
+        <text x="311" y="116" fill="#a3b1c6" font-size="12" text-anchor="middle">Apache Kafka, Redpanda,</text>
+        <text x="311" y="132" fill="#a3b1c6" font-size="12" text-anchor="middle">Confluent, MSK</text>
+        <rect x="448" y="25" width="384" height="160" rx="14" fill="rgba(56,189,248,.05)" stroke="#38bdf8" stroke-dasharray="5 4"/>
+        <text x="640" y="47" fill="#38bdf8" font-size="13" font-weight="700" text-anchor="middle">K9X Streams</text>
+        <rect x="465" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
+        <text x="517" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Consumer</text>
+        <text x="517" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">folds events</text>
+        <rect x="588" y="65" width="105" height="80" rx="10" fill="#101a2e" stroke="#2a3754"/>
+        <text x="640" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">Live state</text>
+        <text x="640" y="118" fill="#a3b1c6" font-size="11" text-anchor="middle">as_of, source</text>
+        <rect x="711" y="65" width="105" height="80" rx="10" fill="#17132b" stroke="#a78bfa"/>
+        <text x="763" y="100" fill="#dbe4f0" font-size="13.5" font-weight="700" text-anchor="middle">MCP server</text>
+        <text x="763" y="118" fill="#a78bfa" font-size="11" text-anchor="middle">/mcp</text>
+        <g stroke="#5b6b8a" stroke-width="1.6" fill="none"><path d="M570,105 L586,105" marker-end="url(#ar)"/><path d="M693,105 L709,105" marker-end="url(#ar)"/></g>
+        <rect x="882" y="40" width="165" height="130" rx="12" fill="#101a2e" stroke="#22d3ee"/>
+        <text x="964" y="72" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">K9-AIF solution</text>
+        <text x="964" y="94" fill="#a3b1c6" font-size="12" text-anchor="middle">agents and squads</text>
+        <text x="964" y="114" fill="#a3b1c6" font-size="12" text-anchor="middle">MCP client</text>
+        <text x="964" y="134" fill="#a3b1c6" font-size="12" text-anchor="middle">k9x Shield on results</text>
+        <text x="964" y="154" fill="#a3b1c6" font-size="12" text-anchor="middle">HIL when it matters</text>
+      </svg>
+    </div>
+  </section>
+
+  <section id="k9aif">
+    <div class="built-on">
+      <h2>Built on the K9-AIF framework</h2>
+      <p><b>K9-AIF (Agentic Integration Framework)</b> is an architecture-first framework for building governed, secure, and enterprise-scale AI applications. Built on OOA/OOD principles and TOGAF-aligned, it brings consistency, governance, and auditability to agentic systems from day one. Every Router, Orchestrator, Squad and Agent in an application built on K9-AIF extends a K9-AIF Architecture Building Block, so governance, human review and auditability are inherited, not hand-built per application.</p>
+      <p class="keyline"><b>Security checks that keep pace with new attacks.</b> AI is now used to attack applications that are themselves built with AI: instructions hidden in documents, agents impersonating other agents, poisoned tool results. K9-AIF tracks these attack techniques as they are published and adds matching checks to the framework's governance pipeline. Solutions built on K9-AIF pick up the new checks with a framework upgrade, without rewriting their own agents. K9X Sentinel reads newly published attacks every day and checks each one against the framework's security capabilities.</p>
+      <p>The <b>K9X ecosystem</b> brings the framework to life: <b class="p-hil">K9X HIL</b> (the human decisions an agent can pause for), <b class="p-sentinel">K9X Sentinel</b> (above), <b class="p-satan">K9X Satan</b> (an adversarial harness that proves the defences hold), and now <b>K9X Streams</b> (live context, governed the same way).</p>
+      <div class="chips">
+        <a class="chip" href="https://k9x.ai" target="_blank" rel="noopener">k9x.ai ↗</a>
+        <a class="chip p-hil" href="https://hil.k9x.ai" target="_blank" rel="noopener">K9X HIL ↗</a>
+        <a class="chip p-sentinel" href="https://sentinel.k9x.ai" target="_blank" rel="noopener">K9X Sentinel ↗</a>
+        <a class="chip p-satan" href="https://satan.k9x.ai" target="_blank" rel="noopener">K9X Satan ↗</a>
+        <a class="chip" href="https://github.com/k9aif/k9-aif-framework" target="_blank" rel="noopener">Framework source ↗</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="scope">
+    <div class="limits">
+      <h2 style="margin-bottom:4px">Scope of this demonstration</h2>
+      <ul>
+        <li>The Accounts Payable events are <b>simulated</b>; there is no real vendor, invoice or payment data.</li>
+        <li>The live state is held in memory and rebuilt from the topics on start; Redis or PostgreSQL behind the same interface is next.</li>
+        <li>One agent with deterministic, explainable rules shows the pattern; your squads call the same MCP tools.</li>
+        <li>The demo's MCP endpoint has no sign-in; with real data it authenticates callers and Zero Trust scopes what each agent may read.</li>
+        <li>MCP resource subscriptions, stream triggers that start agents, and Avro with Schema Registry are <b>designed, not built</b>. Confluent Cloud settings are supported but not yet tested against a Confluent Cloud cluster.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>K9X Streams · part of the K9X ecosystem, built on the K9-AIF framework</span>
+    <span><a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">Source on GitHub</a> · Apache 2.0 · <a href="https://k9x.ai" target="_blank" rel="noopener">k9x.ai</a></span>
+  </div>
+</footer>
+
+<script>
+/* Incoming streams (one colour per Kafka topic) converge into K9X Streams, the image's core;
+   each arrival can leave as an MCP answer (violet) toward the agents. Locked to the core at
+   every screen size; drawn once and held still when the visitor prefers reduced motion. */
+(() => {
+  const cv = document.getElementById('flow'), bg = document.getElementById('heroBg'), txt = document.getElementById('heroText');
+  if (!cv || !cv.getContext) return;
+  const ctx = cv.getContext('2d'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const LANES = [{label: 'ap.invoice.updated', c: '#38bdf8', y: -0.24}, {label: 'ap.payment.posted', c: '#34d399', y: 0},
+                 {label: 'ap.vendor.flagged', c: '#f59e0b', y: 0.24}];
+  let W, H, core, inn = [], out = [], pulse = 0, textRight = 0, textTop = 0, textBottom = 0, wide = true;
+  function size() {
+    const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    const b = bg.getBoundingClientRect();
+    core = {x: b.left - r.left + b.width * 0.5, y: b.top - r.top + b.height * 0.43};
+    const t = txt.getBoundingClientRect(); textRight = t.right - r.left; textTop = t.top - r.top; textBottom = t.bottom - r.top;
+    wide = W > 900;
+  }
+  const bez = (a, c, b, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * c + t * t * b;
+  function spawnIn() {
+    const L = LANES[Math.floor(Math.random() * LANES.length)];
+    const x0 = core.x - (0.55 + Math.random() * 0.5) * W, y0 = core.y + L.y * H * (1.4 + Math.random() * 0.6) + (Math.random() - .5) * 60;
+    inn.push({L, x0, y0, cx: core.x - 0.22 * W, cy: core.y + (y0 - core.y) * 0.35, t: 0, v: 0.0035 + Math.random() * 0.004, r: 1.2 + Math.random() * 1.8});
+  }
+  function spawnOut() {
+    const k = Math.floor(Math.random() * 3), tx = Math.min(W - 96, core.x + 0.27 * W), ty = core.y + (k - 1) * 0.2 * H;
+    out.push({x0: core.x, y0: core.y, cx: core.x + 0.13 * W, cy: core.y + (ty - core.y) * 0.25, tx, ty, t: 0, v: 0.006 + Math.random() * 0.004, r: 1.4 + Math.random() * 1.4});
+  }
+  function dot(x, y, px, py, r, col, a) {
+    ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = r; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
+    ctx.globalAlpha = Math.min(1, a + .2); ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  function labels() {
+    ctx.globalAlpha = .85; ctx.font = '600 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right';
+    const lx = core.x - 0.17 * W;
+    if (wide && lx - 150 > textRight + 10) LANES.forEach(L => { ctx.fillStyle = L.c; ctx.fillText(L.label, lx, core.y + L.y * H * 1.15); });
+    ctx.textAlign = 'center'; ctx.fillStyle = '#e0f2fe'; ctx.font = '700 15px "Space Grotesk", Helvetica, sans-serif';
+    if (wide) ctx.fillText('K9X Streams', core.x, core.y + 92);
+    ctx.font = '600 11px ui-monospace, Menlo, monospace'; ctx.fillStyle = '#93c5fd';
+    if (wide) ctx.fillText('live state · as_of on every value', core.x, core.y + 110);
+    if (!wide) return;
+    const tx = Math.min(W - 96, core.x + 0.27 * W);
+    [-1, 0, 1].forEach(k => {
+      const y = core.y + k * 0.2 * H;
+      ctx.globalAlpha = .9; ctx.fillStyle = 'rgba(23,19,43,.85)'; ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.roundRect(tx - 2, y - 15, 64, 30, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ede9fe'; ctx.font = '700 12px "Space Grotesk", Helvetica, sans-serif'; ctx.fillText('Agent', tx + 30, y + 4);
+    });
+    ctx.fillStyle = '#c4b5fd'; ctx.font = '700 12px ui-monospace, Menlo, monospace';
+    ctx.fillText('MCP →', core.x + 0.16 * W, core.y - 0.2 * H - 26);
+  }
+  function frame() {
+    ctx.clearRect(0, 0, W, H); ctx.globalAlpha = 1;
+    if (Math.random() < 0.55) spawnIn();
+    inn = inn.filter(p => {
+      const pt = p.t; p.t += p.v;
+      if (p.t >= 1) { pulse = 1; if (Math.random() < 0.45) spawnOut(); return false; }
+      const x = bez(p.x0, p.cx, core.x, p.t), y = bez(p.y0, p.cy, core.y, p.t);
+      const px = bez(p.x0, p.cx, core.x, Math.max(0, pt - 0.05)), py = bez(p.y0, p.cy, core.y, Math.max(0, pt - 0.05));
+      const quiet = x < textRight + 40 && y > textTop - 30 && y < textBottom + 30;   // stay faint behind the copy
+      dot(x, y, px, py, p.r, p.L.c, (0.25 + 0.6 * p.t) * (quiet ? 0.18 : 1)); return true;
+    });
+    out = out.filter(p => {
+      const pt = p.t; p.t += p.v;
+      if (p.t >= 1) return false;
+      const x = bez(p.x0, p.cx, p.tx, p.t), y = bez(p.y0, p.cy, p.ty, p.t);
+      const px = bez(p.x0, p.cx, p.tx, Math.max(0, pt - 0.06)), py = bez(p.y0, p.cy, p.ty, Math.max(0, pt - 0.06));
+      dot(x, y, px, py, p.r, '#a78bfa', 0.9 - 0.5 * p.t); return true;
+    });
+    if (pulse > 0) {   // the core breathes as events arrive
+      ctx.globalAlpha = pulse * .55; ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(core.x, core.y, 58 + (1 - pulse) * 26, 0, Math.PI * 2); ctx.stroke(); pulse -= 0.04;
+    }
+    labels();
+    if (!still) requestAnimationFrame(frame);
+  }
+  size(); addEventListener('resize', size);
+  if (still) { for (let i = 0; i < 160; i++) { spawnIn(); inn[inn.length - 1].t = Math.random() * .95; } frame(); }
+  else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

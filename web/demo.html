@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K9X Streams — AI agents don't run on yesterday's data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14; --panel: #0d1424; --panel2: #101a2e; --border: #1e2a44; --text: #dbe4f0; --muted: #8b9bb4;
+    --inv: #38bdf8; --pay: #34d399; --ven: #f59e0b; --mcp: #a78bfa; --ok: #34d399; --hold: #fbbf24; --block: #f87171;
+    --mono: ui-monospace, Menlo, Consolas, monospace; --head: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(1200px 500px at 20% -10%, rgba(56,189,248,.10), transparent 60%), var(--bg);
+         color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 0 20px; }
+  header { display: flex; align-items: center; gap: 16px; padding: 18px 0 8px; flex-wrap: wrap; }
+  .logo { font: 700 18px var(--head); letter-spacing: -.3px; }
+  .logo span { color: var(--inv); }
+  .pills { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { font: 600 11px var(--mono); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; color: var(--muted); background: var(--panel); }
+  .pill.on { color: var(--ok); border-color: rgba(52,211,153,.5); }
+  .pill.off { color: var(--block); border-color: rgba(248,113,113,.5); }
+  h1 { font: 700 clamp(26px, 3.4vw, 40px)/1.1 var(--head); margin: 10px 0 6px; letter-spacing: -.8px; }
+  h1 em { font-style: normal; color: var(--inv); }
+  .lede { color: var(--muted); max-width: 980px; margin: 0 0 16px; font-size: 15px; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card h2 { font: 700 13px var(--head); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  .pipe { padding: 6px 8px 2px; }
+  .pipe svg { width: 100%; height: auto; display: block; }
+
+  .grid { display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; margin-top: 14px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+
+  .btn { font: 700 13px/1 var(--head); border-radius: 8px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--border);
+         background: var(--panel2); color: var(--text); }
+  .btn:hover:not(:disabled) { border-color: var(--inv); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--inv); color: #04121c; border-color: var(--inv); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rate { width: 100%; accent-color: var(--inv); }
+  .counts { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font: 12px var(--mono); color: var(--muted); margin-top: 10px; }
+  .counts b { color: var(--text); text-align: right; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+  .scen { display: grid; gap: 8px; }
+  .scen button { text-align: left; padding: 10px 12px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--border);
+                 color: var(--text); cursor: pointer; }
+  .scen button:hover:not(:disabled) { border-color: var(--mcp); }
+  .scen button:disabled { opacity: .45; cursor: not-allowed; }
+  .scen b { display: block; font: 700 13.5px var(--head); }
+  .scen span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--muted); font: 600 10.5px var(--mono); letter-spacing: .05em; text-transform: uppercase;
+       padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  td { padding: 5px 6px; border-bottom: 1px solid rgba(30,42,68,.6); white-space: nowrap; }
+  td.mono { font-family: var(--mono); font-size: 12px; }
+  td.num { text-align: right; font-family: var(--mono); }
+  tr.flash td { animation: flash 1.4s ease-out; }
+  @keyframes flash { from { background: rgba(56,189,248,.18); } to { background: transparent; } }
+  .chip { font: 700 10.5px var(--mono); border-radius: 999px; padding: 1px 8px; border: 1px solid; }
+  .chip.received { color: var(--muted); border-color: var(--border); }
+  .chip.approved { color: var(--inv); border-color: rgba(56,189,248,.5); }
+  .chip.paid { color: var(--pay); border-color: rgba(52,211,153,.5); }
+  .chip.ok { color: var(--pay); border-color: rgba(52,211,153,.4); }
+  .chip.flagged { color: var(--block); border-color: rgba(248,113,113,.5); }
+  .chip.note { color: var(--ven); border-color: rgba(245,158,11,.5); }
+  .age { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+  .scroll { max-height: 340px; overflow: auto; }
+  .vendors { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; margin-top: 12px; }
+  .vendor { border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; font-size: 12px; background: var(--panel2); }
+  .vendor b { display: block; font-weight: 600; }
+
+  .timeline { display: flex; flex-direction: column; gap: 7px; max-height: 470px; overflow: auto; padding-right: 4px; }
+  .step { border-left: 3px solid var(--border); padding: 6px 10px; background: var(--panel2); border-radius: 0 8px 8px 0; font-size: 12.5px; }
+  .step.mcp { border-left-color: var(--mcp); }
+  .step.inject { border-left-color: var(--block); background: rgba(248,113,113,.08); }
+  .step .k { font: 700 11px var(--mono); color: var(--mcp); }
+  .step .meta { color: var(--muted); font: 11.5px var(--mono); margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+  .badge { font: 700 10px var(--mono); border-radius: 4px; padding: 0 6px; margin-left: 6px; border: 1px solid; }
+  .badge.passed { color: var(--ok); border-color: rgba(52,211,153,.5); }
+  .badge.blocked { color: var(--block); border-color: rgba(248,113,113,.6); }
+  .decision { border-radius: 12px; padding: 14px 16px; margin-top: 4px; border: 2px solid; }
+  .decision .d { font: 700 22px var(--head); letter-spacing: -.3px; }
+  .decision.RELEASE { border-color: var(--ok); background: rgba(52,211,153,.08); }
+  .decision.RELEASE .d { color: var(--ok); }
+  .decision.HOLD { border-color: var(--hold); background: rgba(251,191,36,.08); }
+  .decision.HOLD .d { color: var(--hold); }
+  .decision.ERROR { border-color: var(--block); }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+
+  .log { font: 12px var(--mono); max-height: 220px; overflow: auto; }
+  .log div { padding: 3px 0; border-bottom: 1px solid rgba(30,42,68,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log .t { padding: 0 6px; border-radius: 4px; margin-right: 8px; font-weight: 700; }
+  footer { color: var(--muted); font-size: 12px; padding: 18px 0 28px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+  footer a { color: var(--inv); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/" style="color:inherit;text-decoration:none"><span>K9X</span> Streams</a>
+    <div class="pills">
+      <span class="pill" id="pKafka">Kafka: connecting…</span>
+      <span class="pill" id="pEvents">0 events</span>
+      <span class="pill">MCP: /mcp</span>
+      <span class="pill" id="pGen">generator: stopped</span>
+    </div>
+  </header>
+
+  <h1>AI agents don't run on <em>yesterday's data</em>.</h1>
+  <p class="lede">Live events flow through Kafka into a state store; a K9-AIF agent asks for the current state over MCP
+    just before it acts, and every answer is screened by k9x Shield. Start the generator, then run a scenario and watch
+    the world change while the agent is reviewing.</p>
+
+  <div class="card pipe">
+    <svg id="pipe" viewBox="0 0 1400 250" aria-label="Generator to Kafka to consumer to live state to MCP to agent to decision">
+      <defs>
+        <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3a4a6b"/></marker>
+      </defs>
+      <!-- paths the pulses travel -->
+      <g fill="none" stroke="#2a3754" stroke-width="2">
+        <path id="g2t0" d="M170,125 C215,125 215,70 260,70" marker-end="url(#ar)"/>
+        <path id="g2t1" d="M170,125 L260,125" marker-end="url(#ar)"/>
+        <path id="g2t2" d="M170,125 C215,125 215,180 260,180" marker-end="url(#ar)"/>
+        <path id="t2c0" d="M470,70 C515,70 515,125 560,125" marker-end="url(#ar)"/>
+        <path id="t2c1" d="M470,125 L560,125" marker-end="url(#ar)"/>
+        <path id="t2c2" d="M470,180 C515,180 515,125 560,125" marker-end="url(#ar)"/>
+        <path id="c2s" d="M700,125 L760,125" marker-end="url(#ar)"/>
+        <path id="m2s" d="M960,110 L910,110" marker-end="url(#ar)"/>
+        <path id="s2m" d="M910,140 L960,140" marker-end="url(#ar)"/>
+        <path id="a2m" d="M1150,110 L1100,110" marker-end="url(#ar)"/>
+        <path id="m2a" d="M1100,140 L1150,140" marker-end="url(#ar)"/>
+        <path id="a2d" d="M1290,125 L1310,125" marker-end="url(#ar)"/>
+      </g>
+      <!-- nodes -->
+      <g font-family="Space Grotesk, Helvetica, Arial, sans-serif">
+        <rect x="20" y="85" width="150" height="80" rx="12" fill="#101a2e" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="95" y="118" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Generator</text>
+        <text x="95" y="138" fill="#8b9bb4" font-size="11.5" text-anchor="middle">incoming AP events</text>
+
+        <rect x="245" y="30" width="240" height="190" rx="14" fill="none" stroke="#2a3754" stroke-dasharray="4 4"/>
+        <text x="365" y="22" fill="#8b9bb4" font-size="12" font-weight="600" text-anchor="middle">Kafka (Redpanda) topics</text>
+        <rect x="260" y="52" width="210" height="36" rx="8" fill="#0b1f2e" stroke="#38bdf8"/>
+        <text x="365" y="75" fill="#38bdf8" font-size="12.5" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">ap.invoice.updated</text>
+        <rect x="260" y="107" width="210" height="36" rx="8" fill="#0b2620" stroke="#34d399"/>
+        <text x="365" y="130" fill="#34d399" font-size="12.5" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">ap.payment.posted</text>
+        <rect x="260" y="162" width="210" height="36" rx="8" fill="#2a1f0b" stroke="#f59e0b"/>
+        <text x="365" y="185" fill="#f59e0b" font-size="12.5" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">ap.vendor.flagged</text>
+
+        <rect x="560" y="85" width="140" height="80" rx="12" fill="#101a2e" stroke="#2a3754" stroke-width="1.5"/>
+        <text x="630" y="118" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Consumer</text>
+        <text x="630" y="138" fill="#8b9bb4" font-size="11.5" text-anchor="middle">folds every event</text>
+
+        <rect id="nState" x="760" y="80" width="150" height="90" rx="12" fill="#101a2e" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="835" y="112" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Live state</text>
+        <text x="835" y="131" fill="#8b9bb4" font-size="11.5" text-anchor="middle">latest + recent changes</text>
+        <text x="835" y="149" fill="#8b9bb4" font-size="11.5" text-anchor="middle">as_of on every value</text>
+
+        <rect id="nMcp" x="960" y="80" width="140" height="90" rx="12" fill="#17132b" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1030" y="112" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">MCP server</text>
+        <text x="1030" y="131" fill="#a78bfa" font-size="11" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">get_current</text>
+        <text x="1030" y="147" fill="#a78bfa" font-size="11" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">recent_changes</text>
+
+        <rect id="nAgent" x="1150" y="80" width="140" height="90" rx="12" fill="#101a2e" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="1220" y="108" fill="#dbe4f0" font-size="15" font-weight="700" text-anchor="middle">Agent</text>
+        <text x="1220" y="126" fill="#8b9bb4" font-size="11" text-anchor="middle">K9-AIF BaseAgent</text>
+        <text x="1220" y="143" fill="#8b9bb4" font-size="11" text-anchor="middle">MCP client +</text>
+        <text x="1220" y="158" fill="#8b9bb4" font-size="11" text-anchor="middle">k9x Shield</text>
+
+        <rect id="nDec" x="1310" y="95" width="80" height="60" rx="10" fill="#101a2e" stroke="#2a3754" stroke-width="1.5"/>
+        <text id="tDec" x="1350" y="130" fill="#8b9bb4" font-size="12.5" font-weight="700" text-anchor="middle">decision</text>
+      </g>
+      <text x="20" y="242" fill="#5f6f8a" font-size="11.5" font-family="ui-monospace, Menlo, monospace">dots: one per Kafka event (topic colour) · violet: an MCP call from the agent to the live state and back</text>
+    </svg>
+  </div>
+
+  <div class="grid">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <h2>Incoming data</h2>
+        <div class="row">
+          <button class="btn primary" id="bStart">Start generator</button>
+          <button class="btn" id="bStop">Stop</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">Rate: <b id="rateV" style="color:var(--text)">1.0</b> events/s</div>
+        <input class="rate" type="range" id="rate" min="0.5" max="5" step="0.5" value="1">
+        <div class="counts">
+          <span><i class="dot" style="background:var(--inv)"></i>ap.invoice.updated</span><b id="c0">0</b>
+          <span><i class="dot" style="background:var(--pay)"></i>ap.payment.posted</span><b id="c1">0</b>
+          <span><i class="dot" style="background:var(--ven)"></i>ap.vendor.flagged</span><b id="c2">0</b>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Scenarios</h2>
+        <div class="scen">
+          <button data-s="release"><b>1 · Release payment</b><span>An approved invoice; nothing changes. The agent checks live state and releases.</span></button>
+          <button data-s="duplicate_payment"><b>2 · Duplicate payment</b><span>Another system pays the invoice while the agent is reviewing it.</span></button>
+          <button data-s="vendor_flagged"><b>3 · Vendor flagged</b><span>A sanctions flag arrives for the vendor mid-review.</span></button>
+          <button data-s="poisoned_note"><b>4 · Poisoned stream event</b><span>A vendor note in the stream carries hidden instructions. Shield blocks it.</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Live state <span style="text-transform:none;letter-spacing:0;font-weight:500"> · from Kafka, as of now</span></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Invoice</th><th>Vendor</th><th style="text-align:right">Amount</th><th>Status</th><th>As of</th></tr></thead>
+          <tbody id="invBody"><tr><td colspan="5" class="empty">Start the generator to see invoices arrive.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="vendors" id="vendors"></div>
+    </div>
+
+    <div class="card">
+      <h2>Agent <span style="text-transform:none;letter-spacing:0;font-weight:500" id="agentTitle"> · run a scenario</span></h2>
+      <div class="timeline" id="timeline"><div class="empty">The agent's steps, every MCP call (with its as-of time and Shield's verdict) and its decision appear here.</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Event log · Kafka</h2>
+    <div class="log" id="log"><div class="empty" style="border:0">No events yet.</div></div>
+  </div>
+
+  <footer>
+    <span>Generator → Kafka → consumer → live state → MCP → K9-AIF agent (framework MCP client; results screened by k9x Shield)</span>
+    <span>Part of the K9X ecosystem · built on <a href="https://github.com/k9aif/k9-aif-framework" target="_blank" rel="noopener">K9-AIF</a> ·
+      <a href="https://github.com/k9aif/k9x-streams" target="_blank" rel="noopener">source</a> · Apache-2.0</span>
+  </footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const TOPIC_COLOR = {'ap.invoice.updated': '#38bdf8', 'ap.payment.posted': '#34d399', 'ap.vendor.flagged': '#f59e0b'};
+let TOPICS = ['ap.invoice.updated', 'ap.payment.posted', 'ap.vendor.flagged'];
+let nEvents = 0, busy = false, currentRun = null;
+const svg = $('pipe');
+
+// ── pulses along the pipeline ──
+function pulse(pathIds, color, dur = 650, r = 6) {
+  const paths = pathIds.map(id => document.getElementById(id));
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('r', r); c.setAttribute('fill', color); c.setAttribute('filter', 'url(#glow)');
+  svg.appendChild(c);
+  let i = 0;
+  function leg() {
+    if (i >= paths.length) { c.remove(); return; }
+    const p = paths[i], len = p.getTotalLength(), t0 = performance.now();
+    function frame(now) {
+      const k = Math.min(1, (now - t0) / dur), pt = p.getPointAtLength(k * len);
+      c.setAttribute('cx', pt.x); c.setAttribute('cy', pt.y);
+      if (k < 1) requestAnimationFrame(frame); else { i++; leg(); }
+    }
+    requestAnimationFrame(frame);
+  }
+  leg();
+}
+function glow(id, color) {
+  const n = $(id); if (!n) return;
+  const old = n.getAttribute('stroke'); n.setAttribute('stroke', color); n.setAttribute('stroke-width', '3');
+  setTimeout(() => { n.setAttribute('stroke', old); n.setAttribute('stroke-width', '1.5'); }, 700);
+}
+
+// ── live state (re-read after events, debounced) ──
+let lastStatus = {}, stateTimer = null;
+function refreshSoon() { clearTimeout(stateTimer); stateTimer = setTimeout(loadState, 250); }
+async function loadState() {
+  const s = await (await fetch('/api/state')).json();
+  TOPICS = s.topics || TOPICS;
+  TOPICS.forEach((t, i) => { $('c' + i).textContent = (s.counts || {})[t] || 0; });
+  setGen(s.generator.running, s.generator.rate);
+  const inv = (s.invoices || []).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 40);
+  if (!inv.length) return;
+  $('invBody').innerHTML = inv.map(r => {
+    const v = r.value, st = v.status || 'received', changed = lastStatus[r.id] && lastStatus[r.id] !== st;
+    lastStatus[r.id] = st;
+    const tsAsOf = Date.now() / 1000 - r.age_seconds;
+    return `<tr class="${changed ? 'flash' : ''}"><td class="mono">${esc(r.id)}</td><td>${esc(v.vendor_name || v.vendor_id || '')}</td>
+      <td class="num">${v.amount != null ? Number(v.amount).toLocaleString('en-US', {style: 'currency', currency: 'USD'}) : ''}</td>
+      <td><span class="chip ${esc(st)}">${esc(st)}</span></td><td class="age" data-ts="${tsAsOf}">${fmtAge(r.age_seconds)}</td></tr>`;
+  }).join('');
+  $('vendors').innerHTML = (s.vendors || []).map(r => {
+    const v = r.value, cls = v.status === 'flagged' ? 'flagged' : (v.notes && v.notes.length ? 'note' : 'ok');
+    const label = cls === 'flagged' ? 'flagged' : cls === 'note' ? 'note in stream' : 'clear';
+    return `<div class="vendor"><b>${esc(v.vendor_name || r.id)}</b><span class="chip ${cls}">${label}</span>
+      <span class="age" style="margin-left:6px" data-ts="${Date.now() / 1000 - r.age_seconds}">${fmtAge(r.age_seconds)}</span></div>`;
+  }).join('');
+}
+function fmtAge(s) { s = Math.max(0, Math.round(s)); return s < 60 ? s + ' s ago' : Math.round(s / 60) + ' min ago'; }
+setInterval(() => document.querySelectorAll('.age[data-ts]').forEach(el => { el.textContent = fmtAge(Date.now() / 1000 - Number(el.dataset.ts)); }), 1000);
+
+function setGen(running, rate) {
+  $('pGen').textContent = 'generator: ' + (running ? `running · ${rate}/s` : 'stopped');
+  $('pGen').className = 'pill' + (running ? ' on' : '');
+}
+
+// ── agent timeline ──
+function addStep(html, cls = '') {
+  const tl = $('timeline'); if (tl.querySelector('.empty')) tl.innerHTML = '';
+  const d = document.createElement('div'); d.className = 'step ' + cls; d.innerHTML = html; tl.appendChild(d); tl.scrollTop = tl.scrollHeight;
+}
+function summarize(res) {
+  if (!res) return '';
+  if (res.changes) return `${res.changes.length} change(s) in ${res.window_seconds} s: ` + res.changes.map(c => `${c.type} (${c.seconds_ago} s ago)`).join(', ');
+  if (res.found === false) return 'not found';
+  const v = res.value || {}, bits = [];
+  if (v.status) bits.push('status ' + v.status);
+  if (v.payments && v.payments.length) bits.push('paid by ' + v.payments.map(p => p.payment_id).join(', '));
+  if (v.flag) bits.push('flag: ' + v.flag.reason);
+  if (v.notes && v.notes.length) bits.push('note: “' + v.notes[v.notes.length - 1].slice(0, 70) + '…”');
+  return bits.join(' · ') + `\nas_of ${res.as_of} · ${res.age_seconds} s old · ${res.source ? res.source.topic + ' #' + res.source.offset : ''}`;
+}
+function onAgent(m) {
+  if (m.step === 'note') { addStep(`${esc(m.text)}`); return; }
+  if (m.step === 'decision') {
+    busy = false; setBusy(false);
+    const d = m.decision;
+    addStep(`<div class="decision ${esc(d)}"><div class="d">${d === 'RELEASE' ? '✓ RELEASE payment' : d === 'HOLD' ? '✋ HOLD' : 'ERROR'}</div>
+      <div style="margin-top:4px">${esc(m.reason)}</div></div>`, '');
+    $('tDec').textContent = d; $('tDec').setAttribute('fill', d === 'RELEASE' ? '#34d399' : '#fbbf24');
+    glow('nDec', d === 'RELEASE' ? '#34d399' : '#fbbf24'); pulse(['a2d'], d === 'RELEASE' ? '#34d399' : '#fbbf24', 450, 7);
+    return;
+  }
+  // an MCP call
+  const blocked = m.screened === 'blocked';
+  addStep(`<span class="k">MCP ${esc(m.tool)}</span>(${esc(JSON.stringify(m.args))})
+    <span class="badge ${blocked ? 'blocked' : 'passed'}">Shield: ${blocked ? 'blocked' : 'passed'}</span>
+    <span class="age" style="margin-left:6px">${m.ms} ms</span>
+    <div style="color:var(--muted);font-size:11.5px">${esc(m.step)}</div>
+    <div class="meta">${blocked ? esc(m.reason) : esc(summarize(m.result))}</div>`, 'mcp');
+}
+function setBusy(b) { document.querySelectorAll('.scen button').forEach(x => x.disabled = b); }
+
+// ── live feed ──
+function connect() {
+  const es = new EventSource('/api/stream');
+  es.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.kind === 'kafka') {
+      $('pKafka').textContent = 'Kafka: ' + (m.connected ? 'connected' : 'unreachable');
+      $('pKafka').className = 'pill ' + (m.connected ? 'on' : 'off');
+    } else if (m.kind === 'event') {
+      nEvents++; $('pEvents').textContent = nEvents + ' events';
+      const i = Math.max(0, TOPICS.indexOf(m.topic)), color = TOPIC_COLOR[m.topic] || '#38bdf8';
+      pulse(['g2t' + i, 't2c' + i, 'c2s'], color, 380);
+      glow('nState', color);
+      const ev = m.event || {}, key = ev.invoice_id || ev.vendor_id || '';
+      const lg = $('log'); if (lg.querySelector('.empty')) lg.innerHTML = '';
+      const row = document.createElement('div');
+      row.innerHTML = `<span class="t" style="background:${color}22;color:${color}">${esc(m.topic)}</span>#${m.offset} · ${esc(ev.type)} · ${esc(key)}`
+        + (ev.amount ? ` · $${Number(ev.amount).toLocaleString()}` : '') + (ev.reason ? ` · ${esc(ev.reason)}` : '') + (ev.note ? ' · note' : '');
+      lg.prepend(row); while (lg.children.length > 60) lg.lastChild.remove();
+      refreshSoon();
+    } else if (m.kind === 'mcp') {
+      pulse(['a2m', 'm2s'], '#a78bfa', 260, 5); setTimeout(() => pulse(['s2m', 'm2a'], '#a78bfa', 260, 5), 520);
+      glow('nMcp', '#a78bfa');
+    } else if (m.kind === 'agent') {
+      if (!currentRun || m.run === currentRun) onAgent(m);
+    } else if (m.kind === 'scenario') {
+      currentRun = m.run; busy = true; setBusy(true);
+      $('timeline').innerHTML = '';
+      $('agentTitle').textContent = ` · ${m.invoice.invoice_id} · ${m.invoice.vendor_name} · $${Number(m.invoice.amount).toLocaleString()}`;
+      $('tDec').textContent = 'decision'; $('tDec').setAttribute('fill', '#8b9bb4');
+      glow('nAgent', '#22d3ee');
+    } else if (m.kind === 'inject') {
+      addStep(`<b style="color:var(--block)">⚡ The world changed:</b> ${esc(m.text)}`, 'inject');
+    } else if (m.kind === 'generator') {
+      setGen(m.running, m.rate);
+    }
+  };
+}
+
+$('bStart').onclick = () => fetch('/api/generator/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rate: Number($('rate').value)})});
+$('bStop').onclick = () => fetch('/api/generator/stop', {method: 'POST'});
+$('rate').oninput = () => { $('rateV').textContent = Number($('rate').value).toFixed(1); };
+$('rate').onchange = () => { if ($('pGen').textContent.includes('running')) $('bStart').onclick(); };
+document.querySelectorAll('.scen button').forEach(b => b.onclick = async () => {
+  setBusy(true);
+  const r = await fetch('/api/scenario/' + b.dataset.s, {method: 'POST'});
+  if (!r.ok) { setBusy(false); const d = await r.json().catch(() => ({})); addStep(`<b style="color:var(--block)">${esc(d.detail || 'HTTP ' + r.status)}</b>`, 'inject'); }
+});
+loadState().catch(() => {}); connect();
+</script>
+</body>
+</html>

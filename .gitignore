@@ -6,3 +6,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.env.*
+!.env.sample
+# Source artwork; the page serves web/images/streams-hero.jpg
+web/images/k9x-streams-grok.png
