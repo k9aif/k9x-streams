@@ -446,8 +446,9 @@ app.mount("/", OriginMCPServer(origin).http_app())      # MCP at /mcp</pre></div
         <tr><td>Orchestrators</td><td>Existing K9-AIF clusters, each given the shared state as <code>context_state</code></td><td>Stateless</td></tr>
       </tbody>
     </table>
-    <p class="note">This demo runs every tier in one process with in-memory state. Shared state (Redis, PostgreSQL), consumer groups with
-      committed offsets and lag-based freshness are the next framework release.</p>
+    <p class="note">This demo runs every tier in one process with in-memory state. Shared live state in Redis
+      (<code>RedisContextState</code>, LRU-bounded, quarantine never evicted) is in K9-AIF 1.18; consumer groups with committed
+      offsets and lag-based freshness are next.</p>
   </section>
 </main>
 

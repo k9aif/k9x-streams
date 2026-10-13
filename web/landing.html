@@ -510,7 +510,7 @@
       <h2 style="margin-bottom:4px">Scope of this demonstration</h2>
       <ul>
         <li>The Accounts Payable events are <b>simulated</b>; there is no real vendor, invoice or payment data.</li>
-        <li>The live state is held in memory and rebuilt from the topics on start; Redis or PostgreSQL behind the same interface is next.</li>
+        <li>This demo holds live state in memory and rebuilds it from the topics on start. Shared live state in Redis is in K9-AIF 1.18 for clustered deployments.</li>
         <li>One orchestrator, one squad and one agent with deterministic, explainable rules show the pattern; your squads get the same <code>live_context</code> and MCP tools.</li>
         <li>A quarantined event is held for human review in the decision; raising it to K9X HIL (<code>RequiresHIL</code>) is the next step.</li>
         <li>The demo's MCP endpoint has no sign-in; with real data it authenticates callers and Zero Trust scopes what each agent may read.</li>
