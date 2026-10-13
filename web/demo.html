@@ -127,12 +127,16 @@
   @media (max-width: 900px) { .sim .threats { grid-template-columns: 1fr 1fr; } }
   .sim .x code { font-size: 12px; } .sim .x .meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; white-space: pre-wrap; }
   @media (max-width: 900px) { .sim .agents { grid-template-columns: 1fr 1fr; } .sim .x { grid-template-columns: 1fr; } }
+  .k9x-home { font: 700 13px var(--mono, ui-monospace, Menlo, monospace); color: var(--muted, #a3b1c6); text-decoration: none;
+              border: 1px solid var(--border, #1e2a44); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+  .k9x-home:hover { color: var(--sky, #38bdf8); border-color: var(--sky, #38bdf8); }
+  .k9x-sep { color: var(--border, #1e2a44); margin: 0 10px 0 8px; font-size: 18px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <a class="logo" href="/" style="color:inherit;text-decoration:none"><span>K9X</span> Streams</a>
+    <a class="k9x-home" href="https://k9x.ai" target="_blank" rel="noopener" title="k9x.ai: the K9X ecosystem">K9X.ai</a><span class="k9x-sep" aria-hidden="true">/</span><a class="logo" href="/" style="color:inherit;text-decoration:none"><span>K9X</span> Streams</a>
     <div class="pills">
       <span class="pill" id="pKafka">Kafka: connecting…</span>
       <span class="pill" id="pEvents">0 events</span>

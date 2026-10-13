@@ -148,6 +148,10 @@
   .limits li { margin: 4px 0; }
   footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 22px 0 34px; color: var(--muted); font-size: 13px; }
   footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
+  .k9x-home { font: 700 13px var(--mono, ui-monospace, Menlo, monospace); color: var(--muted, #a3b1c6); text-decoration: none;
+              border: 1px solid var(--border, #1e2a44); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+  .k9x-home:hover { color: var(--sky, #38bdf8); border-color: var(--sky, #38bdf8); }
+  .k9x-sep { color: var(--border, #1e2a44); margin: 0 10px 0 8px; font-size: 18px; }
 </style>
 <style>
   .page-hero { padding-block: 54px 18px; border-bottom: 1px solid var(--border); }
@@ -161,7 +165,7 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a class="logo" href="/"><span>K9X</span> Streams</a>
+    <a class="k9x-home" href="https://k9x.ai" target="_blank" rel="noopener" title="k9x.ai: the K9X ecosystem">K9X.ai</a><span class="k9x-sep" aria-hidden="true">/</span><a class="logo" href="/"><span>K9X</span> Streams</a>
     <span class="tag">BETA</span>
     <nav>
       <a href="/">← Home</a>

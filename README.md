@@ -1,15 +1,30 @@
 # K9X Streams
 
-Real-time, governed context for agents built on [K9-AIF](https://github.com/k9aif/k9-aif-framework).
+The reference demo of **k9x Origin**, live at [streams.k9x.ai](https://streams.k9x.ai).
 
-Agents need the current state of what they reason about, not yesterday's snapshot.
-K9X Streams turns event streams (Kafka / Redpanda, Confluent, change data capture) into a
-live state store and serves it over MCP: the latest value per entity and what just changed,
-each with an `as_of` timestamp, under the framework's governance (Shield screening of tool
-results, Zero Trust scope, PII masking). Rules on a stream can also start agents through the
-K9-AIF Router.
+k9x Origin is built into the [K9-AIF](https://github.com/k9aif/k9-aif-framework) framework (1.18), like k9x Shield.
+An agent asks one question, `get_current(entity, id)`, and gets what is true right now: the current value, when it
+changed, where it came from (an event stream or the system of record), and any reason not to trust it (quarantined,
+in review, conflicting). Origin states facts; business rules decide. Every event, request and answer is screened by
+k9x Shield.
 
-Status: running at [streams.k9x.ai](https://streams.k9x.ai), the reference demo of **k9x Origin** (K9-AIF 1.18), which is built into the framework like k9x Shield. Design notes: [DESIGN.md](DESIGN.md).
+## An agent's three paths
+
+Knowledge comes from the retriever, current truth from k9x Origin, and actions go straight to the systems that own the
+data. Origin is read-only by design.
+
+![An agent's three paths: knowledge, current truth, actions](docs/diagrams/k9x_origin_big_picture.png)
+
+## How k9x Origin is filled
+
+Events are pushed in continuously (databases through change data capture, business apps, logs, IoT; through Kafka or
+Confluent, the Shield gate and one projection per business event) and the systems of record are pulled on demand
+(read-through when an entity is missing, verification before an irreversible step) over MCP, REST or SQL.
+
+![How data reaches k9x Origin](docs/diagrams/k9x_origin_data_in.png)
+
+Design: [k9x Origin design](https://github.com/k9aif/k9-aif-framework/blob/main/docs/roadmap/k9x-origin-design.md) ·
+Developer Guide 15.8 · this repository's [DESIGN.md](DESIGN.md).
 
 ## How it is built
 
@@ -23,7 +38,7 @@ this repository adds only the Accounts Payable parts.
 | `BaseContextProjection`, `InMemoryContextState` | `streams/projections.py`: invoice, payment, vendor flag, vendor note |
 | `ContextIngest` | |
 | k9x Origin: `OriginFactory`, `K9Origin`, `OriginMCPServer` (`/mcp`) | `config/origin.yaml`: entities, squads, agent scopes, Shield checks |
-| `BaseOrchestrator(context_state=...)`, `BaseSquad` | `streams/orchestrator.py`: `PaymentReleaseOrchestrator` |
+| `BaseOrchestrator(origin=...)`, `BaseSquad` | `streams/orchestrator.py`: `PaymentReleaseOrchestrator` |
 | `BaseAgent`, `MCPStreamableHttpConnector`, `screen_tool_result` | `streams/agent.py`: `PaymentReleaseAgent` |
 
 ![Classes](docs/diagrams/k9x_streams_class.png)
