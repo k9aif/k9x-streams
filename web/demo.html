@@ -202,7 +202,7 @@
         <rect id="nDec" x="1310" y="95" width="80" height="60" rx="10" fill="#101a2e" stroke="#2a3754" stroke-width="1.5"/>
         <text id="tDec" x="1350" y="130" fill="#8b9bb4" font-size="12.5" font-weight="700" text-anchor="middle">decision</text>
       </g>
-      <text x="20" y="242" fill="#5f6f8a" font-size="11.5" font-family="ui-monospace, Menlo, monospace">dots: one per Kafka event (topic colour), red when the gate refuses it · violet: an MCP call from the agent to the live state and back</text>
+      <text x="20" y="242" fill="#5f6f8a" font-size="11.5" font-family="ui-monospace, Menlo, monospace">dots: one per Kafka event (topic colour), red when the gate refuses it · violet: an MCP call from the agent to the live state and back · red at the MCP server: request refused, live state never read</text>
     </svg>
   </div>
 
@@ -424,8 +424,13 @@ function connect() {
         <div class="meta">${esc((m.reason || '').replace(/^k9x_Shield blocked ingress /, ''))}</div>`);
       refreshSoon();
     } else if (m.kind === 'mcp') {
-      pulse(['a2m', 'm2s'], '#a78bfa', 260, 5); setTimeout(() => pulse(['s2m', 'm2a'], '#a78bfa', 260, 5), 520);
-      glow('nMcp', '#a78bfa');
+      if (m.screened === 'refused') {   // refused at the server: live state is never read
+        pulse(['a2m'], '#f87171', 260, 5); setTimeout(() => pulse(['m2a'], '#f87171', 260, 5), 300);
+        glow('nMcp', '#f87171');
+      } else {
+        pulse(['a2m', 'm2s'], '#a78bfa', 260, 5); setTimeout(() => pulse(['s2m', 'm2a'], '#a78bfa', 260, 5), 520);
+        glow('nMcp', '#a78bfa');
+      }
     } else if (m.kind === 'agent') {
       if (!currentRun || m.run === currentRun) onAgent(m);
     } else if (m.kind === 'scenario') {
