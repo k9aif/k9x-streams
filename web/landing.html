@@ -252,8 +252,9 @@
         <tr><td>Amazon Kinesis Data Streams</td><td>A bridge connector to Kafka (Kinesis Data Firehose only delivers to storage, so agents cannot consume from it)</td></tr>
       </tbody>
     </table>
-    <p class="note">Messages are K9-AIF <code>EventEnvelope</code> JSON today, so a raw change record or log line goes through a small
-      transform first; ready-made mappers for Debezium change records and log lines are next. How to build on the model:
+    <p class="note">Sources keep their own format: an envelope mapper per topic turns each message into an event
+      (<code>debezium</code> for database change records, <code>log_line</code> for application logs, or your own via
+      <code>register_mapper</code>); a webhook receiver can skip Kafka with <code>ContextIngest.ingest_raw()</code>. How to build on the model:
       <a href="#use">Use it in your solution →</a></p>
   </section>
 
@@ -334,7 +335,8 @@
   provider: kafka
   kafka: {auto_offset_reset: earliest}   # replay: topics are the source of truth
   state: {max_age_seconds: 120}          # older values are reported stale
-  gate: governance                       # every event through security.shield</pre></div>
+  gate: governance                       # every event through security.shield
+  mappers: {default: auto, dbserver.public.policies: debezium}</pre></div>
       <div class="u"><div><h3>One projection per business event</h3><p>Map source records to the entities your agents reason about. This is the only domain code the fabric needs.</p></div>
 <pre>class PolicyProjection(BaseContextProjection):
     entity, id_field = "policy", "policy_id"
