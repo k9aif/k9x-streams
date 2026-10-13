@@ -52,8 +52,15 @@ case "$cmd" in
     sudo podman pod rm -f "$POD" 2>/dev/null || true
     sudo podman pod create --name "$POD" -p "127.0.0.1:$PORT:$PORT"
 
+    # Only this app's settings reach the container. A shared .env may also hold database,
+    # object-storage or JWT secrets that K9X Streams never uses; a public-facing container
+    # should not carry them in its environment.
     ENV_ARGS=()
-    [ -f "$PROJECT_DIR/.env" ] && ENV_ARGS=(--env-file "$PROJECT_DIR/.env")
+    if [ -f "$PROJECT_DIR/.env" ]; then
+      while IFS= read -r line; do
+        ENV_ARGS+=(-e "$line")
+      done < <(grep -E '^(STREAMS_|KAFKA_)[A-Z0-9_]*=' "$PROJECT_DIR/.env" | sed -E 's/^([A-Z0-9_]+)="?([^"]*)"?$/\1=\2/')
+    fi
     if [ "$MODE" = "external" ]; then
       BROKER="$(env_value KAFKA_BROKER)"
       [ -n "$BROKER" ] || { echo "STREAMS_KAFKA=external needs KAFKA_BROKER in .env" >&2; exit 1; }
