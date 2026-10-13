@@ -2,7 +2,8 @@
 # k9x_streams — build and run helper (Podman pod: K9X Streams + its own Redpanda)
 # Run from any directory on the Podman host (no sudo needed — script handles it).
 #
-# streams.k9x.ai → Cloudflare Tunnel → http://localhost:8016 (localhost-only).
+# streams.k9x.ai → Cloudflare Tunnel → http://localhost:8016 (localhost-only by default).
+# To reach it from the LAN too (http://<host-ip>:8016), set STREAMS_BIND=0.0.0.0 in .env.
 #
 # Kafka: by default the pod runs its own Redpanda, so the public demo never publishes to
 # a shared broker. To use your own Kafka instead, set in .env:
@@ -48,9 +49,10 @@ case "$cmd" in
 
   start)
     MODE="$(env_value STREAMS_KAFKA)"; MODE="${MODE:-pod}"
-    echo "Starting pod $POD on 127.0.0.1:$PORT (Kafka: $MODE) ..."
+    BIND="$(env_value STREAMS_BIND)"; BIND="${BIND:-127.0.0.1}"
+    echo "Starting pod $POD on $BIND:$PORT (Kafka: $MODE) ..."
     sudo podman pod rm -f "$POD" 2>/dev/null || true
-    sudo podman pod create --name "$POD" -p "127.0.0.1:$PORT:$PORT"
+    sudo podman pod create --name "$POD" -p "$BIND:$PORT:$PORT"
 
     # Only this app's settings reach the container. A shared .env may also hold database,
     # object-storage or JWT secrets that K9X Streams never uses; a public-facing container
@@ -100,6 +102,8 @@ case "$cmd" in
     echo "  MCP:        http://127.0.0.1:$PORT/mcp"
     echo "  Health:     http://127.0.0.1:$PORT/api/health"
     echo "  Kafka:      $BROKER ($MODE)"
+    [ "$BIND" = "127.0.0.1" ] && echo "  LAN:        off (STREAMS_BIND=0.0.0.0 in .env to allow http://<host-ip>:$PORT)" \
+                              || echo "  LAN:        http://<host-ip>:$PORT (bound to $BIND)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     ;;
 
